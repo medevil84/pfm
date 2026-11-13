@@ -1,0 +1,117 @@
+# PFM application configuration.
+#
+# Copy this file to `config.toml` and adjust, or override individual values
+# with `PFM_` environment variables using `__` as a nested-separator, e.g.:
+#
+#   PFM_SERVER__PORT=9000
+#   PFM_DATABASE__ENGINE=mariadb
+#   PFM_DATABASE__MARIADB__URL="mysql://user:pass@localhost:3306/pfm"
+#
+# Precedence (highest wins): environment > file > built-in defaults.
+# Point at a non-default file with the `PFM_CONFIG` environment variable.
+
+[server]
+# Bind address and port for the HTTP listener.
+host = "127.0.0.1"
+port = 9999
+
+[database]
+# Storage engine: "sqlite" | "mariadb".
+engine = "sqlite"
+
+# --- SQLite (used when engine = "sqlite") ---
+# Relative paths are resolved against the process working directory.
+# Use ":memory:" for a throw-in-memory database (mainly for tests).
+sqlite_path = "data/pfm.db"
+# Apply WAL / synchronous=NORMAL / busy_timeout / foreign_keys=ON to each
+# connection on open.
+sqlite_apply_pragmas = true
+# SQLite connections are file-locked; keep this at 1 for a single process.
+sqlite_max_connections = 1
+
+# --- MariaDB / MySQL (used when engine = "mariadb") ---
+# A full connection URL, e.g. "mysql://user:pass@localhost:3306/pfm".
+# mariadb_url = "mysql://root:secret@127.0.0.1:3306/pfm"
+# mariadb_max_connections = 10
+# mariadb_min_connections = 1
+
+[i18n]
+# Locale used when the client does not send a usable Accept-Language header.
+default_locale = "en"
+# Locales the application can serve.
+available_locales = ["en", "it"]
+
+[static]
+# Controls how static frontend assets (web/) are served.
+#
+# --- Local development (standalone mode) ---
+# Use "disk" to serve files from the `dir` folder on the local filesystem.
+# The SPA fallback is automatic: any unmatched route that is not an API
+# path will serve index.html, so client-side routes work on direct load.
+source = "disk"
+# Directory for "disk" mode. Ignored when source = "embedded".
+dir = "web"
+#
+# --- Production behind nginx ---
+# When a reverse proxy (nginx) serves the static files, you can set
+# source = "embedded" to bake the assets into the binary (belt-and-suspenders),
+# or simply rely on nginx and let the fallback service handle any
+# requests that slip through.
+# source = "embedded"
+
+[security]
+# --- Session secret (REQUIRED for a stable deployment) ---
+# Key used to sign/encrypt the session cookie. Generate your own and never
+# commit it:   openssl rand -hex 32
+# Left unset, a random key is generated at each start and every session is
+# lost on restart. It can also be supplied as PFM_SECURITY__SESSION_SECRET.
+# session_secret = "<output of: openssl rand -hex 32>"
+
+# --- Session cookie (tower-sessions, stateless encrypted cookie) ---
+# Lifetime of the session cookie, in seconds.
+session_max_age_s = 86400
+session_cookie_name = "pfm_session"
+# Name of the JS-readable CSRF double-submit cookie.
+csrf_cookie_name = "pfm_csrf"
+# When true, trust X-Forwarded-For / X-Forwarded-Proto (app behind a
+# TLS-terminating reverse proxy). Also drives the Secure flag on cookies
+# and the Strict-Transport-Security header.
+trust_proxy = false
+# List of IP addresses (or CIDR prefixes) of trusted reverse proxies.
+# Only when the source address of the incoming TCP connection matches one
+# of these entries will X-Forwarded-For be consulted for rate-limiting and
+# audit logging. When the list is empty and trust_proxy is true, the
+# X-Forwarded-For header is trusted unconditionally (useful in development
+# behind a single localhost proxy). In production, always specify the
+# exact IP(s) of your reverse proxy (e.g. nginx on 127.0.0.1).
+# trusted_proxies = ["127.0.0.1", "10.0.0.0/8"]
+trusted_proxies = []
+
+# --- Content-Security-Policy ---
+# Sent as a response header on every request. The default is a restrictive
+# policy suitable for the PFM SPA (no inline scripts, no external origins).
+# Adjust if you embed external resources (e.g. Google Fonts, a CDN).
+csp = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:"
+
+# --- Password hashing (Argon2id) ---
+# OWASP-recommended cost parameters. Tune upward for high-value deployments.
+[security.argon2]
+memory_kib = 65536   # 64 MiB
+iterations = 3
+parallelism = 4
+
+# --- Login brute-force throttling (per ip + username) ---
+[security.rate_limit_login]
+# Max attempts allowed within a window.
+per_min = 5
+# Window length in seconds.
+window_s = 60
+
+[logging]
+# RUST_LOG-style filter, e.g. "info", "debug", "pfm_app=trace,tower_http=info".
+level = "info"
+
+[scheduler]
+# Allineamento di regole e carte: sempre all'avvio, poi ogni interval_secs.
+enabled = true
+interval_secs = 3600

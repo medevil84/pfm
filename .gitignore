@@ -10,3 +10,6 @@
 .DS_Store
 *.swp
 /.claude/*
+
+# Local configuration (holds session_secret): copy config.example.toml
+/config.toml
