@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#1a1f36">
+<title>PFM — Configurazione iniziale</title>
+<link rel="stylesheet" href="/vendor/bootstrap.min.css">
+<link rel="stylesheet" href="/vendor/bootstrap-icons/bootstrap-icons.css">
+<style>
+:root{
+  color-scheme: light;
+  --bg:#f2f5f9;
+  --surface:#ffffff;
+  --surface-2:#f7f9fc;
+  --surface-3:#eaeff6;
+  --border:#dde3ec;
+  --border-strong:#c5cfdd;
+  --text:#161b2e;
+  --text-muted:#6b7688;
+  --pos:#0e7a4a;
+  --pos-soft:#e3f5ec;
+  --neg:#c3282f;
+  --neg-soft:#fdeaea;
+  --accent:#2b58d6;
+  --accent-soft:#e7ecfd;
+  --sidebar-bg:#161b2e;
+  --sidebar-mark:#f0b429;
+  --shadow-sm:0 1px 2px rgba(16,24,40,.06);
+  --shadow-md:0 6px 20px rgba(16,24,40,.10);
+  --shadow-lg:0 18px 44px rgba(16,24,40,.18);
+  --radius:12px;
+  --safe-b: env(safe-area-inset-bottom, 0px);
+}
+body.theme-dark{
+  color-scheme: dark;
+  --bg:#0f1219;
+  --surface:#181d28;
+  --surface-2:#1e2432;
+  --surface-3:#252c3c;
+  --border:#2b3346;
+  --border-strong:#3b455c;
+  --text:#e6e9f0;
+  --text-muted:#9aa5b8;
+  --pos:#3ddc97;
+  --pos-soft:#123529;
+  --neg:#ff7a7a;
+  --neg-soft:#3a1f22;
+  --accent:#7aa2ff;
+  --accent-soft:#1d2740;
+  --sidebar-bg:#0b0e15;
+  --shadow-sm:0 1px 2px rgba(0,0,0,.4);
+  --shadow-md:0 6px 20px rgba(0,0,0,.45);
+  --shadow-lg:0 18px 44px rgba(0,0,0,.6);
+}
+
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;width:100%;overflow-x:hidden}
+body{
+  background:var(--bg);
+  color:var(--text);
+  font-family:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;
+  font-size:15px;
+  min-height:100vh;
+  -webkit-tap-highlight-color:transparent;
+}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.001ms!important;transition-duration:.001ms!important}
+}
+
+.form-control,.form-select{background:var(--surface);color:var(--text);border-color:var(--border)}
+.form-control:focus,.form-select:focus{background:var(--surface);color:var(--text);border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.form-control::placeholder{color:var(--text-muted)}
+
+.wizard-screen{
+  min-height:100vh;display:flex;align-items:center;justify-content:center;
+  padding:1.5rem;background:var(--sidebar-bg);
+}
+.wizard-card{
+  width:100%;max-width:520px;background:var(--surface);
+  border-radius:18px;padding:2.5rem 2rem 2rem;box-shadow:var(--shadow-lg);
+  position:relative;overflow:hidden;
+}
+.wz-mark{display:flex;align-items:center;gap:.6rem;font-size:1.4rem;font-weight:700;letter-spacing:-.02em;margin-bottom:.3rem}
+.wz-mark i{color:var(--sidebar-mark)}
+.wz-sub{color:var(--text-muted);font-size:.92rem;margin-bottom:1.8rem}
+
+.wz-steps{display:flex;align-items:center;justify-content:center;gap:0;margin-bottom:2rem}
+.wz-step{display:flex;flex-direction:column;align-items:center;gap:.4rem;position:relative;z-index:1}
+.wz-step .dot{
+  width:32px;height:32px;border-radius:50%;
+  background:var(--surface-3);border:2px solid var(--border);
+  display:flex;align-items:center;justify-content:center;
+  font-size:.78rem;font-weight:700;color:var(--text-muted);
+  transition:all .3s ease;
+}
+.wz-step .dot i{font-size:.85rem}
+.wz-step .lbl{font-size:.72rem;font-weight:600;color:var(--text-muted);white-space:nowrap;transition:color .3s ease}
+.wz-step.is-active .dot{background:var(--accent);border-color:var(--accent);color:#fff;box-shadow:0 0 0 4px var(--accent-soft)}
+.wz-step.is-active .lbl{color:var(--accent)}
+.wz-step.is-done .dot{background:var(--pos);border-color:var(--pos);color:#fff}
+.wz-step.is-done .lbl{color:var(--pos)}
+.wz-connector{width:48px;height:2px;background:var(--border);margin:0 .35rem;margin-bottom:1.2rem;transition:background .3s ease}
+.wz-connector.is-done{background:var(--pos)}
+
+.wz-panel{display:none;animation:wzFadeIn .25s ease}
+.wz-panel.is-on{display:block}
+@keyframes wzFadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.wz-panel-title{font-size:1.1rem;font-weight:700;margin-bottom:.2rem;letter-spacing:-.01em}
+.wz-panel-desc{font-size:.86rem;color:var(--text-muted);margin-bottom:1.4rem;line-height:1.5}
+
+.wz-field{margin-bottom:1.15rem}
+.wz-field label{display:block;font-size:.84rem;font-weight:600;margin-bottom:.35rem;color:var(--text)}
+.wz-field .hint{font-size:.76rem;color:var(--text-muted);margin-top:.3rem;line-height:1.4}
+.wz-field .hint i{font-size:.72rem;vertical-align:-.1em;margin-right:.15rem}
+.wz-field .req{color:var(--neg);font-weight:600}
+
+.pw-strength{height:4px;border-radius:2px;background:var(--surface-3);margin-top:.4rem;overflow:hidden}
+.pw-strength .bar{height:100%;width:0;border-radius:2px;transition:width .3s ease,background .3s ease}
+.pw-strength .bar.w1{width:25%;background:var(--neg)}
+.pw-strength .bar.w2{width:50%;background:#d99b00}
+.pw-strength .bar.w3{width:75%;background:var(--pos)}
+.pw-strength .bar.w4{width:100%;background:var(--pos)}
+.pw-label{font-size:.72rem;font-weight:600;margin-top:.25rem;min-height:1em}
+.pw-label.w1{color:var(--neg)}
+.pw-label.w2{color:#d99b00}
+.pw-label.w3{color:var(--pos)}
+.pw-label.w4{color:var(--pos)}
+
+.wz-review{background:var(--surface-2);border:1px solid var(--border);border-radius:10px;padding:1rem 1.1rem;margin-bottom:1.2rem}
+.wz-review .rv-row{display:flex;justify-content:space-between;align-items:center;padding:.45rem 0}
+.wz-review .rv-row + .rv-row{border-top:1px solid var(--border)}
+.wz-review .rv-label{font-size:.84rem;color:var(--text-muted)}
+.wz-review .rv-val{font-size:.84rem;font-weight:600;color:var(--text);text-align:right;max-width:60%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.wz-review .rv-val.masked{letter-spacing:.12em;font-family:monospace}
+
+.wz-actions{display:flex;gap:.6rem;margin-top:1.8rem;padding-top:1.2rem;border-top:1px solid var(--border)}
+.wz-btn{
+  border:none;border-radius:9px;height:42px;padding:0 1.2rem;
+  font-size:.9rem;font-weight:600;cursor:pointer;
+  display:inline-flex;align-items:center;justify-content:center;gap:.4rem;
+  transition:filter .15s ease,opacity .15s ease;
+}
+.wz-btn:active{filter:brightness(.95)}
+.wz-btn-primary{background:var(--accent);color:#fff;flex:1}
+.wz-btn-primary:hover{filter:brightness(1.08)}
+.wz-btn-primary:disabled{opacity:.45;cursor:not-allowed;filter:none}
+.wz-btn-ghost{background:transparent;color:var(--text-muted);border:1px solid var(--border)}
+.wz-btn-ghost:hover{background:var(--surface-3);color:var(--text)}
+
+.wz-dialog-overlay{
+  display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);
+  z-index:2000;align-items:center;justify-content:center;padding:1.5rem;
+}
+.wz-dialog-overlay.is-on{display:flex}
+.wz-dialog{
+  background:var(--surface);border-radius:16px;padding:2rem 1.75rem 1.5rem;
+  width:100%;max-width:440px;box-shadow:var(--shadow-lg);
+  animation:wzFadeIn .25s ease;
+}
+.wz-dialog .dg-icon{
+  width:52px;height:52px;border-radius:50%;
+  background:var(--accent-soft);color:var(--accent);
+  display:flex;align-items:center;justify-content:center;
+  margin-bottom:1rem;
+}
+.wz-dialog .dg-icon i{font-size:1.5rem}
+.wz-dialog h3{font-size:1.1rem;font-weight:700;letter-spacing:-.01em;margin-bottom:.5rem}
+.wz-dialog p{font-size:.9rem;color:var(--text-muted);line-height:1.55;margin-bottom:0}
+.wz-dialog p code{
+  background:var(--surface-3);border:1px solid var(--border);
+  border-radius:5px;padding:.1em .4em;font-size:.84rem;
+  font-family:'Cascadia Code','JetBrains Mono',monospace;color:var(--text);
+}
+.wz-dialog .dg-actions{display:flex;justify-content:flex-end;gap:.6rem;margin-top:1.5rem}
+
+.wz-err{
+  background:var(--neg-soft);color:var(--neg);
+  border:1px solid color-mix(in srgb,var(--neg) 25%,transparent);
+  border-radius:8px;padding:.55rem .8rem;font-size:.84rem;font-weight:500;
+  margin-bottom:1rem;display:flex;align-items:center;gap:.4rem;
+  animation:wzFadeIn .2s ease;
+}
+
+@media (max-width:576px){
+  .wizard-card{padding:1.8rem 1.2rem 1.5rem}
+  .wz-steps{gap:0}
+  .wz-connector{width:32px}
+  .wz-step .lbl{font-size:.66rem}
+  .wz-actions{flex-direction:column-reverse}
+  .wz-btn{width:100%}
+}
+</style>
+</head>
+<body>
+
+<div class="wizard-screen">
+  <div class="wizard-card">
+    <div class="wz-mark"><i class="bi bi-wallet2"></i> PFM</div>
+    <p class="wz-sub">Configurazione iniziale dell'applicazione.</p>
+
+    <div class="wz-steps" id="stepIndicator">
+      <div class="wz-step is-active" data-step="1">
+        <div class="dot"><span>1</span></div>
+        <div class="lbl">Account</div>
+      </div>
+      <div class="wz-connector" data-conn="1"></div>
+      <div class="wz-step" data-step="2">
+        <div class="dot"><span>2</span></div>
+        <div class="lbl">Preferenze</div>
+      </div>
+      <div class="wz-connector" data-conn="2"></div>
+      <div class="wz-step" data-step="3">
+        <div class="dot"><span>3</span></div>
+        <div class="lbl">Verifica</div>
+      </div>
+    </div>
+
+    <!-- STEP 1: Account -->
+    <div class="wz-panel is-on" id="panel1">
+      <h3 class="wz-panel-title">Account amministratore</h3>
+      <p class="wz-panel-desc">
+        L'amministratore gestisce gli utenti e la condivisione dei conti.
+        Questi dati sono obbligatori per avviare l'applicazione.
+      </p>
+      <div class="wz-field">
+        <label for="wzUser">Nome utente <span class="req">*</span></label>
+        <input type="text" class="form-control" id="wzUser" value="admin" autocomplete="username" required>
+        <div class="hint"><i class="bi bi-info-circle"></i> Usato per l'accesso e identificato nella condivisione dei conti.</div>
+      </div>
+      <div class="wz-field">
+        <label for="wzPass">Password <span class="req">*</span></label>
+        <input type="password" class="form-control" id="wzPass" autocomplete="new-password" required>
+        <div class="pw-strength"><div class="bar" id="pwBar"></div></div>
+        <div class="pw-label" id="pwLabel"></div>
+      </div>
+      <div class="wz-field">
+        <label for="wzPass2">Conferma password <span class="req">*</span></label>
+        <input type="password" class="form-control" id="wzPass2" autocomplete="new-password" required>
+        <div class="hint" id="pwMatchHint" style="display:none;color:var(--neg)"><i class="bi bi-exclamation-circle"></i> Le password non coincidono.</div>
+      </div>
+      <div class="wz-field">
+        <label for="wzEmail">Email <span class="req">*</span></label>
+        <input type="email" class="form-control" id="wzEmail" autocomplete="email" required>
+        <div class="hint"><i class="bi bi-info-circle"></i> Necessaria per la ricerca utenti nella condivisione e per i primi inviti.</div>
+      </div>
+    </div>
+
+    <!-- STEP 2: Preferences -->
+    <div class="wz-panel" id="panel2">
+      <h3 class="wz-panel-title">Preferenze dell'applicazione</h3>
+      <p class="wz-panel-desc">
+        Valori predefiniti già impostati. Puoi modificarli ora o in seguito
+        dalle impostazioni.
+      </p>
+      <div class="wz-field">
+        <label for="wzAppName">Nome dell'app</label>
+        <input type="text" class="form-control" id="wzAppName" value="PFM">
+        <div class="hint"><i class="bi bi-info-circle"></i> Compare nel titolo del browser e nel manifest PWA.</div>
+      </div>
+      <div class="wz-field">
+        <label for="wzLang">Lingua di default</label>
+        <select class="form-select" id="wzLang">
+          <option value="it" selected>Italiano</option>
+          <option value="en">English</option>
+        </select>
+      </div>
+      <div class="wz-field mb-0">
+        <label for="wzCurrency">Valuta di default</label>
+        <select class="form-select" id="wzCurrency">
+          <option value="EUR" selected>EUR — Euro</option>
+          <option value="USD">USD — Dollar USA</option>
+          <option value="GBP">GBP — Sterlina</option>
+          <option value="CHF">CHF — Franco svizzero</option>
+          <option value="JPY">JPY — Yen giapponese</option>
+          <option value="AUD">AUD — Dollar australiano</option>
+          <option value="CAD">CAD — Dollar canadese</option>
+          <option value="PLN">PLN — Zloty polacco</option>
+          <option value="CNY">CNY — Yuan cinese</option>
+        </select>
+        <div class="hint"><i class="bi bi-info-circle"></i> Usata come default per l'utente admin e come fallback globale (ISO 4217).</div>
+      </div>
+    </div>
+
+    <!-- STEP 3: Review -->
+    <div class="wz-panel" id="panel3">
+      <h3 class="wz-panel-title">Verifica configurazione</h3>
+      <p class="wz-panel-desc">
+        Controlla i dati prima di terminare il setup.
+        Potrai modificarli in seguito dalle impostazioni.
+      </p>
+      <div class="wz-review">
+        <div class="rv-row">
+          <span class="rv-label">Username</span>
+          <span class="rv-val" id="rvUser">admin</span>
+        </div>
+        <div class="rv-row">
+          <span class="rv-label">Password</span>
+          <span class="rv-val masked" id="rvPass">••••••••</span>
+        </div>
+        <div class="rv-row">
+          <span class="rv-label">Email</span>
+          <span class="rv-val" id="rvEmail">—</span>
+        </div>
+        <div class="rv-row">
+          <span class="rv-label">Nome app</span>
+          <span class="rv-val" id="rvAppName">PFM</span>
+        </div>
+        <div class="rv-row">
+          <span class="rv-label">Lingua</span>
+          <span class="rv-val" id="rvLang">Italiano</span>
+        </div>
+        <div class="rv-row">
+          <span class="rv-label">Valuta</span>
+          <span class="rv-val" id="rvCurrency">EUR — Euro</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="wz-actions" id="wzActions">
+      <button class="wz-btn wz-btn-ghost" id="btnBack" style="display:none">
+        <i class="bi bi-arrow-left"></i> Indietro
+      </button>
+      <button class="wz-btn wz-btn-primary" id="btnNext">
+        Continua <i class="bi bi-arrow-right"></i>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Termination dialog -->
+<div class="wz-dialog-overlay" id="endDialog">
+  <div class="wz-dialog">
+    <div class="dg-icon"><i class="bi bi-box-arrow-right"></i></div>
+    <h3>Setup completato</h3>
+    <p>
+      Il processo di setup terminerà e l'applicazione verrà chiusa.
+      Al prossimo avvio non serve più il flag <code>--setup</code>:
+      l'app parte direttamente in modalità normale.
+    </p>
+    <div class="dg-actions">
+      <button class="wz-btn wz-btn-ghost" id="dgCancel">Annulla</button>
+      <button class="wz-btn wz-btn-primary" id="dgFinish">
+        <i class="bi bi-check-lg"></i> Termina
+      </button>
+    </div>
+  </div>
+</div>
+
+<script src="/setup_common.js"></script>
+<script src="/setup_wizard.js"></script>
+</body>
+</html>

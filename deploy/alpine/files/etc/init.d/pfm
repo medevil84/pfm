@@ -1,0 +1,36 @@
+#!/sbin/openrc-run
+
+name="pfm"
+description="PFM personal finance manager"
+
+supervisor="supervise-daemon"
+command="/usr/local/bin/pfm-app"
+command_args="--config /etc/pfm/config.toml"
+command_user="pfm:pfm"
+directory="/var/lib/pfm"
+
+output_logger="logger -t pfm -p daemon.info"
+error_logger="logger -t pfm -p daemon.err"
+
+respawn_delay=5
+respawn_max=10
+respawn_period=60
+
+# Environment variables can be overridden in /etc/conf.d/pfm
+# Examples: export PFM_SERVER__PORT=9000, export PFM_LOGGING__LEVEL=debug
+
+depend() {
+	need net
+	use logger
+	after firewall
+}
+
+start_pre() {
+	checkpath --directory --owner pfm:pfm --mode 0750 /var/lib/pfm || \
+		return 1
+
+	if ! [ -f /etc/pfm/config.toml ]; then
+		eerror "/etc/pfm/config.toml not found"
+		return 1
+	fi
+}

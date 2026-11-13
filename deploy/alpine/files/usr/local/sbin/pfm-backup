@@ -1,0 +1,149 @@
+#!/bin/sh
+# pfm-backup: copia consistente del database SQLite -> .gz locale -> Google Drive (rclone).
+# Eseguito da cron (/etc/periodic/daily/pfm-backup) o a mano come root.
+set -eu
+
+usage() {
+	cat <<'EOF'
+Uso: pfm-backup [-h|--help]
+
+Crea un backup consistente (sqlite3 .backup) di /var/lib/pfm/pfm.db in
+/var/backups/pfm/pfm-AAAAMMGG-HHMMSS.db.gz e lo carica con rclone.
+Impostazioni: /etc/pfm/backup.conf
+EOF
+}
+
+case "${1:-}" in
+	-h|--help) usage; exit 0 ;;
+	"") ;;
+	*) echo "Argomento sconosciuto: $1" >&2; usage >&2; exit 1 ;;
+esac
+
+if [ "$(id -u)" != "0" ]; then
+	echo "Errore: eseguire come root" >&2
+	exit 1
+fi
+
+# Valori predefiniti, sovrascrivibili da /etc/pfm/backup.conf
+RCLONE_REMOTE="gdrive:pfm-backups"
+KEEP_LOCAL=14
+KEEP_REMOTE_DAYS=60
+RCLONE_CONFIG_FILE="/etc/pfm/rclone.conf"
+RCLONE_ENABLED="yes"
+if [ -f /etc/pfm/backup.conf ]; then
+	# shellcheck disable=SC1091
+	. /etc/pfm/backup.conf
+fi
+
+DB_PATH="/var/lib/pfm/pfm.db"
+STAGING_DIR="/var/backups/pfm"
+BACKUP_USER="pfm"
+LOCK_DIR="/run/pfm-backup.lock"
+
+log_msg() {
+	echo "$1"
+	logger -t pfm-backup "$1" || true
+}
+
+log_error() {
+	echo "$1" >&2
+	logger -t pfm-backup -p daemon.err "$1" || true
+}
+
+# Il lock va preso PRIMA di installare il trap: se e' di un'altra istanza
+# non dobbiamo rimuoverlo in uscita.
+if ! mkdir "$LOCK_DIR" 2>/dev/null; then
+	log_error "Backup gia' in esecuzione ($LOCK_DIR presente)"
+	exit 1
+fi
+trap 'rmdir "$LOCK_DIR" 2>/dev/null || true' EXIT INT TERM
+
+# sqlite3 su un file inesistente ne crea uno vuoto: meglio fermarsi.
+if [ ! -f "$DB_PATH" ]; then
+	log_error "Database non trovato: $DB_PATH"
+	exit 1
+fi
+
+if [ ! -d "$STAGING_DIR" ]; then
+	mkdir -p "$STAGING_DIR"
+	chown "$BACKUP_USER:$BACKUP_USER" "$STAGING_DIR"
+	chmod 750 "$STAGING_DIR"
+fi
+
+TS=$(date +%Y%m%d-%H%M%S)
+COPY="$STAGING_DIR/pfm-$TS.db"
+ARCHIVE="$COPY.gz"
+
+log_msg "Backup database PFM in corso"
+
+# Come utente pfm, cosi' gli eventuali file -wal/-shm restano di sua proprieta'.
+if ! su -s /bin/sh "$BACKUP_USER" -c "sqlite3 '$DB_PATH' '.timeout 10000' '.backup \"$COPY\"'"; then
+	log_error "sqlite3 .backup fallito"
+	rm -f "$COPY"
+	exit 1
+fi
+
+# Tutto cio' che tocca file dentro $STAGING_DIR (scrivibile dall'utente pfm, cioe'
+# dal processo esposto in rete) gira come pfm: da root, un symlink piazzato la'
+# dentro farebbe seguire a gzip/chmod/sqlite3 un percorso arbitrario.
+INTEGRITY=$(su -s /bin/sh "$BACKUP_USER" -c "sqlite3 '$COPY' 'PRAGMA integrity_check;'" 2>&1 || true)
+if [ "$INTEGRITY" != "ok" ]; then
+	log_error "integrity_check fallito sulla copia: $INTEGRITY"
+	su -s /bin/sh "$BACKUP_USER" -c "rm -f '$COPY' '$COPY-wal' '$COPY-shm'"
+	exit 1
+fi
+
+if ! su -s /bin/sh "$BACKUP_USER" -c "gzip -9 '$COPY' && chmod 600 '$ARCHIVE'"; then
+	log_error "compressione del backup fallita"
+	su -s /bin/sh "$BACKUP_USER" -c "rm -f '$COPY' '$ARCHIVE'"
+	exit 1
+fi
+log_msg "Creato $ARCHIVE"
+
+# Retention locale: i nomi contengono il timestamp, quindi l'ordine alfabetico e' cronologico.
+COUNT=$(find "$STAGING_DIR" -maxdepth 1 -name 'pfm-*.db.gz' | wc -l)
+if [ "$COUNT" -gt "$KEEP_LOCAL" ]; then
+	find "$STAGING_DIR" -maxdepth 1 -name 'pfm-*.db.gz' | sort | head -n "$((COUNT - KEEP_LOCAL))" |
+		while read -r old; do
+			rm -f "$old"
+		done
+	log_msg "Retention locale: tenuti gli ultimi $KEEP_LOCAL"
+fi
+
+if [ "$RCLONE_ENABLED" != "yes" ]; then
+	log_msg "Upload remoto disabilitato (RCLONE_ENABLED=$RCLONE_ENABLED)"
+	exit 0
+fi
+if ! command -v rclone >/dev/null 2>&1; then
+	log_error "rclone non installato: backup solo locale (apk add rclone)"
+	exit 0
+fi
+if [ ! -f "$RCLONE_CONFIG_FILE" ]; then
+	log_error "$RCLONE_CONFIG_FILE assente: backup solo locale (esegui pfm-rclone-setup)"
+	exit 0
+fi
+
+# L'upload gira come root e legge il file prodotto da pfm: deve essere un file
+# regolare, non un link verso altro.
+if [ -L "$ARCHIVE" ] || [ ! -f "$ARCHIVE" ]; then
+	log_error "$ARCHIVE non e' un file regolare: upload annullato"
+	exit 1
+fi
+
+if ! OUT=$(rclone --config "$RCLONE_CONFIG_FILE" copy "$ARCHIVE" "$RCLONE_REMOTE" \
+	--retries 3 --low-level-retries 5 2>&1); then
+	log_error "Upload su $RCLONE_REMOTE fallito: $OUT"
+	exit 1
+fi
+log_msg "Caricato su $RCLONE_REMOTE"
+
+if [ "$KEEP_REMOTE_DAYS" -gt 0 ]; then
+	if OUT=$(rclone --config "$RCLONE_CONFIG_FILE" delete "$RCLONE_REMOTE" \
+		--min-age "${KEEP_REMOTE_DAYS}d" 2>&1); then
+		log_msg "Retention remota: rimossi i file piu' vecchi di $KEEP_REMOTE_DAYS giorni"
+	else
+		log_error "Pulizia remota fallita (non critico): $OUT"
+	fi
+fi
+
+log_msg "Backup completato"

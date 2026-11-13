@@ -1,0 +1,12 @@
+# Local database files. `data/.gitkeep` keeps the directory itself in the tree.
+/data/*
+!/data/.gitkeep
+
+# Build output
+/target/
+/deploy/*/dist/*
+
+# Editor / OS noise
+.DS_Store
+*.swp
+/.claude/*

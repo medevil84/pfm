@@ -1,0 +1,11 @@
+# Variabili d'ambiente opzionali per il servizio pfm (lette da OpenRC).
+# Qualsiasi valore di config.toml si puo' sovrascrivere con PFM_<SEZIONE>__<CHIAVE>.
+
+# Niente codici colore ANSI nei log di syslog
+export NO_COLOR=1
+
+# Filtro log (il livello in config.toml [logging] NON viene usato all'avvio)
+#export RUST_LOG=info
+
+# Esempi di override
+#export PFM_SERVER__PORT=9000

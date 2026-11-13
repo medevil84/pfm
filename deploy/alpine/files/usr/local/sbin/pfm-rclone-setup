@@ -1,0 +1,152 @@
+#!/bin/sh
+set -eu
+
+# PFM rclone Setup Script
+# Configures Google Drive remote for rclone backup
+
+# Check if running as root
+if [ "$(id -u)" != "0" ]; then
+	echo "Errore: questo script deve essere eseguito come root" >&2
+	exit 1
+fi
+
+# Parse arguments
+FORCE=0
+case "${1:-}" in
+	--force)
+		FORCE=1
+		;;
+	"")
+		# No argument, proceed
+		;;
+	*)
+		echo "Uso: pfm-rclone-setup [--force]" >&2
+		exit 1
+		;;
+esac
+
+CONFIG_FILE="/etc/pfm/rclone.conf"
+BACKUP_CONF="/etc/pfm/backup.conf"
+
+# Read RCLONE_REMOTE from backup.conf if available
+RCLONE_REMOTE="gdrive:pfm-backups"
+if [ -f "$BACKUP_CONF" ]; then
+	# Safely extract RCLONE_REMOTE value
+	RCLONE_REMOTE=$(grep -E '^RCLONE_REMOTE=' "$BACKUP_CONF" | cut -d= -f2- | tr -d '"' | tr -d "'") || true
+	if [ -z "$RCLONE_REMOTE" ]; then
+		RCLONE_REMOTE="gdrive:pfm-backups"
+	fi
+fi
+
+# Extract the remote name (part before colon)
+REMOTE_NAME="gdrive"
+
+# Check if config already exists
+if [ -f "$CONFIG_FILE" ] && [ "$FORCE" = "0" ]; then
+	echo "Errore: il file $CONFIG_FILE esiste già." >&2
+	echo "Usa --force per sovrascriverlo." >&2
+	exit 1
+fi
+
+cat <<'EOF'
+=== Configurazione rclone per PFM ===
+
+Questo script configura rclone per il backup automatico su Google Drive.
+Si richiede un token di autenticazione ottenuto da una macchina con browser.
+
+PROCEDURE:
+1. Su una macchina CON browser e con rclone installato
+2. Eseguite il comando:
+   rclone authorize "drive" "CLIENT_ID" "CLIENT_SECRET" --drive-scope drive.file
+   (senza CLIENT_ID/SECRET se usi il client predefinito di rclone)
+
+3. Copiate il token JSON mostrato (una riga che inizia con {"access_token"...)
+4. Incollate il token qui
+
+IMPORTANTE: il token contiene credenziali sensibili.
+Non condividere con altri, non salvare in repository pubblici.
+
+EOF
+
+# Read token from stdin
+printf "Incollare il token JSON: "
+read -r TOKEN
+
+# Validate token
+if [ -z "$TOKEN" ]; then
+	echo "Errore: nessun token fornito" >&2
+	exit 1
+fi
+
+if ! echo "$TOKEN" | grep -q '^{'; then
+	echo "Errore: il token deve iniziare con '{'" >&2
+	exit 1
+fi
+
+if ! echo "$TOKEN" | grep -q 'access_token'; then
+	echo "Errore: il token non contiene 'access_token'" >&2
+	exit 1
+fi
+
+# Write config file with restricted permissions
+# Client ID/secret personali (opzionali): il token va rinfrescato con lo stesso
+# client con cui e' stato emesso. Vuoto = client predefinito di rclone.
+printf "Client ID personale (invio per usare quello di rclone): "
+read -r CLIENT_ID
+CLIENT_SECRET=""
+if [ -n "$CLIENT_ID" ]; then
+	printf "Client secret: "
+	read -r CLIENT_SECRET
+fi
+
+(umask 077
+ {
+	echo "[$REMOTE_NAME]"
+	echo "type = drive"
+	if [ -n "$CLIENT_ID" ]; then
+		echo "client_id = $CLIENT_ID"
+		echo "client_secret = $CLIENT_SECRET"
+	fi
+	echo "scope = drive.file"
+	echo "token = $TOKEN"
+ } > "$CONFIG_FILE"
+)
+
+chmod 600 "$CONFIG_FILE"
+echo "File di configurazione scritto: $CONFIG_FILE"
+
+# Test rclone
+echo ""
+echo "Test della configurazione rclone..."
+
+if ! command -v rclone >/dev/null 2>&1; then
+	echo "Avvertenza: rclone non trovato nel PATH" >&2
+	exit 1
+fi
+
+# Extract the folder path from RCLONE_REMOTE
+REMOTE_PATH="${RCLONE_REMOTE#*:}"
+
+# Create the backup folder if it doesn't exist
+echo "Creazione della cartella remota..."
+if rclone --config "$CONFIG_FILE" mkdir "gdrive:$REMOTE_PATH"; then
+	echo "Cartella creata/verificata: $REMOTE_PATH"
+else
+	echo "Avvertenza: non è stato possibile creare la cartella, ma potrebbe già esistere"
+fi
+
+# List the Google Drive root to verify access
+echo "Verifica accesso a Google Drive..."
+if OUT=$(rclone --config "$CONFIG_FILE" lsd "gdrive:" 2>&1); then
+	echo "$OUT" | head -5
+	echo ""
+	echo "Configurazione completata con successo!"
+	echo "Potete ora testare il backup eseguendo:"
+	echo "  /usr/local/sbin/pfm-backup"
+else
+	echo "Errore: impossibile accedere a Google Drive: $OUT" >&2
+	echo "Verificate il token e riprovate con --force"
+	exit 1
+fi
+
+exit 0

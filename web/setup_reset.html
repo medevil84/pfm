@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#1a1f36">
+<title>PFM — Conferma reset</title>
+<link rel="stylesheet" href="/vendor/bootstrap.min.css">
+<link rel="stylesheet" href="/vendor/bootstrap-icons/bootstrap-icons.css">
+<style>
+:root{
+  color-scheme: light;
+  --bg:#f2f5f9;
+  --surface:#ffffff;
+  --surface-2:#f7f9fc;
+  --surface-3:#eaeff6;
+  --border:#dde3ec;
+  --text:#161b2e;
+  --text-muted:#6b7688;
+  --neg:#c3282f;
+  --neg-soft:#fdeaea;
+  --accent:#2b58d6;
+  --accent-soft:#e7ecfd;
+  --sidebar-bg:#161b2e;
+  --sidebar-mark:#f0b429;
+  --shadow-lg:0 18px 44px rgba(16,24,40,.18);
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;width:100%;overflow-x:hidden}
+body{
+  background:var(--sidebar-bg);
+  color:var(--text);
+  font-family:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;
+  font-size:15px;
+  min-height:100vh;
+  display:flex;align-items:center;justify-content:center;
+  padding:1.5rem;
+}
+.card{
+  width:100%;max-width:480px;background:var(--surface);
+  border-radius:18px;padding:2.5rem 2rem 2rem;box-shadow:var(--shadow-lg);
+}
+.mark{display:flex;align-items:center;gap:.6rem;font-size:1.4rem;font-weight:700;letter-spacing:-.02em;margin-bottom:1.5rem}
+.mark i{color:var(--sidebar-mark)}
+h1{font-size:1.15rem;font-weight:700;margin-bottom:.6rem}
+.desc{font-size:.92rem;color:var(--text-muted);line-height:1.6;margin-bottom:1.5rem}
+.warn{
+  background:var(--neg-soft);border:1px solid #f5c2c4;border-radius:10px;
+  padding:.9rem 1rem;font-size:.88rem;color:var(--neg);line-height:1.5;
+  display:flex;gap:.5rem;align-items:flex-start;margin-bottom:1.5rem;
+}
+.warn i{font-size:1.1rem;margin-top:.1rem}
+.actions{display:flex;gap:.6rem;margin-top:1.5rem;padding-top:1.2rem;border-top:1px solid var(--border)}
+.btn{
+  border:none;border-radius:9px;height:42px;padding:0 1.2rem;
+  font-size:.9rem;font-weight:600;cursor:pointer;
+  display:inline-flex;align-items:center;justify-content:center;gap:.4rem;
+  transition:filter .15s ease,opacity .15s ease;
+}
+.btn:active{filter:brightness(.95)}
+.btn-primary{background:var(--accent);color:#fff;flex:1}
+.btn-primary:hover{filter:brightness(1.08)}
+.btn-primary:disabled{opacity:.45;cursor:not-allowed;filter:none}
+.btn-danger{background:var(--neg);color:#fff}
+.btn-danger:hover{filter:brightness(1.08)}
+.btn-danger:disabled{opacity:.45;cursor:not-allowed;filter:none}
+.btn-ghost{background:transparent;color:var(--text-muted);border:1px solid var(--border)}
+.btn-ghost:hover{background:var(--surface-3);color:var(--text)}
+.hidden{display:none}
+@media (max-width:576px){
+  .card{padding:1.8rem 1.2rem 1.5rem}
+  .actions{flex-direction:column-reverse}
+  .btn{width:100%}
+}
+.ack{
+  display:flex;align-items:flex-start;gap:.6rem;margin-top:1rem;
+  font-size:.88rem;line-height:1.45;
+}
+.ack input{margin-top:.15rem;flex:0 0 auto}
+.btn[disabled]{opacity:.5;cursor:not-allowed}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="mark"><i class="bi bi-wallet2"></i> PFM</div>
+  <h1>Conferma reset dei dati</h1>
+  <p class="desc">
+    Il database contiene già una configurazione. Continuare il setup <strong>eliminarà
+    tutti i dati applicativi</strong>: utenti, conti, movimenti, regole, importazioni e
+    preferenze. Lo schema del database e le migrazioni restano invariati.
+  </p>
+  <div class="warn">
+    <i class="bi bi-exclamation-triangle"></i>
+    <span>Questa operazione è irreversibile. Tutti i dati correnti saranno persi.</span>
+  </div>
+  <label class="ack" for="ackReset">
+    <input type="checkbox" id="ackReset">
+    <span>Confermo di voler eliminare definitivamente tutti i dati applicativi.</span>
+  </label>
+  <div class="actions" id="actions">
+    <button class="btn btn-ghost" id="btnCancel">Annulla</button>
+    <button class="btn btn-danger" id="btnConfirm" disabled>
+      <i class="bi bi-trash"></i> Conferma reset
+    </button>
+  </div>
+</div>
+
+<script src="/setup_common.js"></script>
+<script src="/setup_reset.js"></script>
+</body>
+</html>

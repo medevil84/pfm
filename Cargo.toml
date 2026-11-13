@@ -1,0 +1,85 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/pfm-domain",
+    "crates/pfm-config",
+    "crates/pfm-i18n",
+    "crates/pfm-repo",
+    "crates/pfm-service",
+    "crates/pfm-http",
+    "crates/pfm-app",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.75"
+license = "MIT"
+authors = ["medevil"]
+publish = false
+
+[workspace.dependencies]
+# --- local crates ---
+pfm-domain = { path = "crates/pfm-domain" }
+pfm-config = { path = "crates/pfm-config" }
+pfm-i18n = { path = "crates/pfm-i18n" }
+pfm-repo = { path = "crates/pfm-repo" }
+pfm-service = { path = "crates/pfm-service" }
+pfm-http = { path = "crates/pfm-http" }
+
+# --- async runtime ---
+tokio = { version = "1", features = ["full"] }
+
+# --- web framework ---
+axum = { version = "0.8", features = ["json"] }
+tower-http = { version = "0.6", features = ["fs"] }
+tower = { version = "0.5", features = ["util"] }
+tower-sessions = { version = "0.15", features = ["signed", "axum-core"] }
+http-body-util = "0.1"
+
+# --- database (Any: SQLite + MariaDB/MySQL) ---
+sqlx = { version = "0.9", default-features = false, features = [
+    "any",
+    "runtime-tokio",
+    "sqlite",
+    "mysql",
+    "chrono",
+    "migrate",
+    "macros",
+    "tls-rustls",
+] }
+
+# --- config ---
+figment = { version = "0.10", features = ["toml", "env"] }
+
+# --- observability ---
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# --- data / serialization ---
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+chrono = { version = "0.4", features = ["serde"] }
+rrule = "0.14"
+
+# --- security: password hashing, ids, randomness, async trait objects ---
+argon2 = { version = "0.5", features = ["std"] }
+uuid = { version = "1", features = ["v4"] }
+rand = "0.8"
+async-trait = "0.1"
+
+# --- CLI ---
+clap = { version = "4", features = ["derive"] }
+
+# --- static asset embedding ---
+rust-embed = { version = "8", features = ["axum", "mime-guess"] }
+mime_guess = "2"
+
+# --- utilities ---
+anyhow = "1"
+time = "0.3"
+sha2 = "0.10"
+
+[profile.release]
+lto = "thin"
+strip = "symbols"

@@ -1,0 +1,16 @@
+[package]
+name = "pfm-domain"
+description = "Pure business domain model for PFM (no framework or I/O dependencies)."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+publish.workspace = true
+
+[dependencies]
+chrono = { workspace = true }
+rrule = { workspace = true }
+
+[dev-dependencies]
+proptest = "1"

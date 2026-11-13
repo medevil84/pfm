@@ -1,0 +1,2261 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#1a1f36">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/icons/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>PFM · Registro finanziario</title>
+
+<link href="/vendor/bootstrap.min.css" rel="stylesheet">
+<link href="/vendor/bootstrap-icons/bootstrap-icons.css" rel="stylesheet">
+<script src="/vendor/chart.umd.min.js"></script>
+
+<style>
+/* ============================================================
+   TOKEN
+   Un solo set di variabili: niente più coppie duplicate
+   (--today-bg / --today-highlight, --border-color / --table-border...)
+   ============================================================ */
+:root{
+  color-scheme: light;
+  --bg:#f2f5f9;
+  --surface:#ffffff;
+  --surface-2:#f7f9fc;
+  --surface-3:#eaeff6;
+  --border:#dde3ec;
+  --border-strong:#c5cfdd;
+  --text:#161b2e;
+  --text-muted:#6b7688;
+  --pos:#0e7a4a;
+  --pos-soft:#e3f5ec;
+  --neg:#c3282f;
+  --neg-soft:#fdeaea;
+  --accent:#2b58d6;
+  --accent-soft:#e7ecfd;
+  --today:#fff6da;
+  --today-line:#d99b00;
+  --today-text:#7a5800;
+  --future-text:#7a8496;
+  --sidebar-bg:#161b2e;
+  --sidebar-text:#e8ebf2;
+  --sidebar-muted:rgba(232,235,242,.55);
+  --sidebar-hover:rgba(255,255,255,.07);
+  --sidebar-active:rgba(255,255,255,.13);
+  --sidebar-mark:#f0b429;
+  --shadow-sm:0 1px 2px rgba(16,24,40,.06);
+  --shadow-md:0 6px 20px rgba(16,24,40,.10);
+  --shadow-lg:0 18px 44px rgba(16,24,40,.18);
+  --radius:12px;
+  --sidebar-w:248px;
+  --safe-b: env(safe-area-inset-bottom, 0px);
+  --reg-head-h:33px;
+}
+body.theme-dark{
+  color-scheme: dark;
+  --bg:#0f1219;
+  --surface:#181d28;
+  --surface-2:#1e2432;
+  --surface-3:#252c3c;
+  --border:#2b3346;
+  --border-strong:#3b455c;
+  --text:#e6e9f0;
+  --text-muted:#9aa5b8;
+  --pos:#3ddc97;
+  --pos-soft:#123529;
+  --neg:#ff7a7a;
+  --neg-soft:#3a1f22;
+  --accent:#7aa2ff;
+  --accent-soft:#1d2740;
+  --today:#3a2f16;
+  --today-line:#c08a00;
+  --today-text:#ffd776;
+  --future-text:#8894a8;
+  --sidebar-bg:#0b0e15;
+  --shadow-sm:0 1px 2px rgba(0,0,0,.4);
+  --shadow-md:0 6px 20px rgba(0,0,0,.45);
+  --shadow-lg:0 18px 44px rgba(0,0,0,.6);
+}
+
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;width:100%;overflow-x:hidden}
+body{
+  background:var(--bg);
+  color:var(--text);
+  font-family:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;
+  font-size:15px;
+  min-height:100vh;
+  -webkit-tap-highlight-color:transparent;
+}
+.num{font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1}
+/* Colori degli importi: --amt-pos / --amt-neg li imposta app.js dalle preferenze;
+   se mancano valgono i colori del tema (verde / rosso). */
+.pos{color:var(--amt-pos,var(--pos))}
+.neg{color:var(--amt-neg,var(--neg))}
+
+/* focus visibile ovunque */
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.001ms!important;transition-duration:.001ms!important}
+}
+
+/* Bootstrap override minimi per il tema */
+.form-control,.form-select{background:var(--surface);color:var(--text);border-color:var(--border)}
+.form-control:focus,.form-select:focus{background:var(--surface);color:var(--text);border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.form-control::placeholder{color:var(--text-muted)}
+.form-control:disabled,.form-control[readonly],.form-select:disabled{background:var(--surface-3);color:var(--text);-webkit-text-fill-color:var(--text);opacity:.85;border-color:var(--border)}
+.modal.show{display:block}
+/* Unica aggiunta al CSS del mockup, che non prevede alcuno stato di
+   caricamento: una barra sottile in cima mentre una richiesta è in volo.
+   Usa i token già definiti e rispetta prefers-reduced-motion. */
+body.is-loading::after{content:'';position:fixed;top:0;left:0;right:0;height:2px;
+  background:var(--accent);z-index:9999;transform-origin:left;animation:pfm-loading 1.1s ease-in-out infinite}
+@keyframes pfm-loading{
+  0%{transform:scaleX(0);transform-origin:left}
+  50%{transform:scaleX(1);transform-origin:left}
+  50.01%{transform:scaleX(1);transform-origin:right}
+  100%{transform:scaleX(0);transform-origin:right}}
+@media (prefers-reduced-motion:reduce){body.is-loading::after{animation:none;transform:scaleX(1);opacity:.6}}
+.modal-content{background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:16px}
+.modal-header,.modal-footer{border-color:var(--border)}
+.btn-close{filter:var(--close-filter,none)}
+body.theme-dark .btn-close{filter:invert(1) grayscale(1) brightness(1.6)}
+.dropdown-menu{background:var(--surface);border-color:var(--border)}
+.dropdown-item{color:var(--text)}
+.dropdown-item:hover{background:var(--surface-3);color:var(--text)}
+.form-select{background-repeat:no-repeat;background-position:right .75rem center;background-size:16px 12px}
+body.theme-dark .form-select{background-image:url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%239aa5b8' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m2 5 6 6 6-6'/%3e%3c/svg%3e");background-repeat:no-repeat;background-position:right .75rem center;background-size:16px 12px}
+body.theme-dark .form-check-input{background-color:var(--surface-3);border-color:var(--border-strong)}
+body.theme-dark .form-check-input:checked{background-color:var(--accent);border-color:var(--accent)}
+body.theme-dark input[type=date]::-webkit-calendar-picker-indicator{filter:invert(.8)}
+table.reg,table.reg td,table.reg th,.table-plain,.table-plain td,.table-plain th{color:var(--text)}
+/* La regola sopra ha specificità maggiore di `.pos`/`.neg`: senza queste le celle importo
+   (td.c-imp.pos, td.r.neg…) restano del colore del testo. */
+table.reg td.pos,.table-plain td.pos{color:var(--amt-pos,var(--pos))}
+table.reg td.neg,.table-plain td.neg{color:var(--amt-neg,var(--neg))}
+
+/* ============================================================
+   LOGIN
+   ============================================================ */
+.login-screen{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:1.5rem;background:var(--sidebar-bg)}
+.login-card{width:100%;max-width:380px;background:var(--surface);border-radius:18px;padding:2.25rem 1.75rem;box-shadow:var(--shadow-lg)}
+.login-mark{display:flex;align-items:center;gap:.6rem;font-size:1.5rem;font-weight:700;letter-spacing:-.02em;margin-bottom:.15rem}
+.login-mark i{color:var(--sidebar-mark)}
+.login-sub{color:var(--text-muted);font-size:.9rem;margin-bottom:1.6rem}
+
+/* ============================================================
+   SHELL
+   ============================================================ */
+.app{display:none;min-height:100vh}
+.app.is-on{display:block}
+
+.sidebar{
+  position:fixed;left:0;top:0;bottom:0;width:var(--sidebar-w);z-index:1040;
+  background:var(--sidebar-bg);color:var(--sidebar-text);
+  display:flex;flex-direction:column;transition:transform .25s ease;
+}
+.sidebar .brand{display:flex;align-items:center;gap:.55rem;padding:.9rem 1.1rem .7rem;font-weight:700;font-size:1.15rem;letter-spacing:-.01em}
+.sidebar .brand .bwrap{display:flex;flex-direction:column;line-height:1.05}
+.sidebar .brand .ver{font-size:.62rem;font-weight:600;color:var(--sidebar-muted);letter-spacing:.06em;margin-top:.1rem}
+.sidebar .brand>i{color:var(--sidebar-mark);font-size:1.35rem}
+.sidebar .brand .spacer{margin-left:auto}
+.icon-btn{background:transparent;border:none;color:var(--sidebar-muted);width:32px;height:32px;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;cursor:pointer}
+.icon-btn:hover{background:var(--sidebar-hover);color:#fff}
+.icon-btn{width:24px;height:24px;border-radius:6px;font-size:.8rem;line-height:1}
+.sidebar .icon-btn i,.icon-btn i,.icon-btn .bi{font-size:.8rem;line-height:1}
+
+
+.side-label{padding:.55rem 1.1rem .3rem;font-size:.7rem;color:var(--sidebar-muted);font-weight:600;letter-spacing:.04em;display:flex;align-items:center;justify-content:space-between}
+.acct-list{padding:0 .55rem;display:flex;flex-direction:column;gap:2px;max-height:34vh;overflow-y:auto}
+.acct-item{
+  width:100%;text-align:left;border:none;background:transparent;color:rgba(232,235,242,.82);
+  padding:.5rem .6rem;border-radius:9px;display:flex;align-items:center;gap:.55rem;cursor:pointer;font-size:.88rem;
+}
+.acct-item:hover{background:var(--sidebar-hover);color:#fff}
+.acct-item.is-on{background:var(--sidebar-active);color:#fff;box-shadow:inset 3px 0 0 var(--sidebar-mark)}
+.acct-item .ai{width:22px;text-align:center;opacity:.9;font-size:1.05rem;flex:0 0 22px}
+.acct-item .amid{flex:1;min-width:0;display:flex;flex-direction:column;line-height:1.2}
+.acct-item .an{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.acct-item .ano{font-size:.72rem;color:var(--sidebar-muted);font-variant-numeric:tabular-nums;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.acct-item .av{font-size:.8rem;font-weight:600;opacity:.9;flex:0 0 auto}
+.acct-item .av.neg{color:var(--amt-neg,#ff9a9a)}
+.acct-item.is-virtual{padding-left:1.35rem;font-size:.84rem}
+.acct-item.is-virtual .ai{opacity:.6}
+.side-sub{padding:.35rem 1.1rem .2rem;font-size:.68rem;color:var(--sidebar-muted);letter-spacing:.03em}
+
+.side-sep{height:1px;background:rgba(255,255,255,.1);margin:.6rem 1.1rem}
+.nav-list{padding:0 .55rem;display:flex;flex-direction:column;gap:2px;flex:1;overflow-y:auto}
+.nav-btn{
+  width:100%;text-align:left;border:none;background:transparent;color:rgba(232,235,242,.75);
+  padding:.55rem .6rem;border-radius:9px;display:flex;align-items:center;gap:.65rem;cursor:pointer;font-size:.92rem;
+}
+.nav-btn:hover{background:var(--sidebar-hover);color:#fff}
+.nav-btn.is-on{background:var(--sidebar-active);color:#fff;font-weight:600}
+.nav-btn i{width:20px;text-align:center;font-size:1.05rem}
+
+.side-user{padding:.8rem 1.1rem;border-top:1px solid rgba(255,255,255,.1);display:flex;align-items:center;gap:.6rem;font-size:.85rem}
+.side-user .av{width:32px;height:32px;border-radius:50%;background:var(--sidebar-mark);color:#161b2e;font-weight:700;display:flex;align-items:center;justify-content:center}
+
+.scrim{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:1035}
+.scrim.is-on{display:block}
+
+.main{margin-left:var(--sidebar-w);padding:1rem 1.4rem 2rem;min-height:100vh}
+.page{display:none}
+.page.is-on{display:block}
+
+.topbar{display:flex;align-items:center;justify-content:space-between;gap:.75rem;flex-wrap:wrap;margin-bottom:1rem}
+.page-h{display:flex;align-items:center;gap:.55rem;font-size:1.25rem;font-weight:700;letter-spacing:-.01em;margin:0}
+.badge-tipo{font-size:.68rem;font-weight:600;padding:.22em .6em;border-radius:20px;border:1px solid transparent}
+.t-corrente{background:var(--accent-soft);color:var(--accent);border-color:color-mix(in srgb,var(--accent) 25%,transparent)}
+.t-deposito{background:var(--pos-soft);color:var(--pos);border-color:color-mix(in srgb,var(--pos) 25%,transparent)}
+.t-carta{background:var(--neg-soft);color:var(--neg);border-color:color-mix(in srgb,var(--neg) 25%,transparent)}
+.t-virtuale{background:var(--surface-3);color:var(--text-muted);border-color:var(--border)}
+
+.pcard{color:var(--text);background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow-sm);margin-bottom:1.1rem;overflow:hidden}
+.pcard-h{padding:.75rem 1rem;border-bottom:1px solid var(--border);background:var(--surface-2);font-weight:600;display:flex;align-items:center;justify-content:space-between;gap:.6rem;flex-wrap:wrap}
+.pcard-b{padding:1rem}
+
+/* ============================================================
+   KPI
+   ============================================================ */
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:.7rem;margin-bottom:1rem}
+.kpi{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:.7rem .85rem;box-shadow:var(--shadow-sm);position:relative}
+.kpi .k-l{font-size:.74rem;color:var(--text-muted);font-weight:600;display:flex;align-items:center;gap:.3rem}
+.kpi .k-v{font-size:1.3rem;font-weight:700;margin-top:.15rem;letter-spacing:-.02em}
+.kpi .k-s{font-size:.72rem;color:var(--text-muted);margin-top:.1rem}
+.kpi.k-warn{border-color:color-mix(in srgb,var(--neg) 45%,var(--border))}
+.kpi.k-warn .k-v{color:var(--neg)}
+.kpi .k-meter{height:5px;border-radius:3px;background:var(--surface-3);overflow:hidden;margin:.45rem 0 .3rem}
+.kpi .k-meter i{display:block;height:100%;border-radius:3px;background:var(--accent)}
+.kpi .k-meter i.warn{background:#e0a800}
+.kpi .k-meter i.over{background:var(--neg)}
+.kpi .k-meter i.good{background:var(--pos)}
+.kpi .k-two{display:flex;gap:.7rem;margin-top:.2rem}
+.kpi .k-two>div{flex:1;min-width:0}
+.kpi .k-two .k-sl{font-size:.7rem;font-weight:700;color:var(--text-muted);display:flex;align-items:center;gap:.25rem}
+.kpi .k-two .k-sv{font-size:1.12rem;font-weight:700;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.kpi .k-two .sep{flex:0 0 1px;background:var(--border);align-self:stretch}
+.hint{cursor:help;color:var(--text-muted);opacity:.7}
+
+/* ============================================================
+   TOOLBAR REGISTRO
+   ============================================================ */
+.toolbar{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;margin-bottom:.75rem}
+.monthnav{position:relative;display:flex;align-items:center;gap:.15rem;background:var(--surface);border:1px solid var(--border);border-radius:9px;padding:.15rem;max-width:100%;overflow:hidden}
+.monthnav button{flex:0 0 30px;border:none;background:transparent;color:var(--text);width:30px;height:30px;border-radius:7px;cursor:pointer}
+.monthnav button:hover{background:var(--surface-3)}
+.monthnav .m-label{flex:0 0 auto;min-width:200px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:center;font-weight:600;font-size:.88rem;text-transform:capitalize;cursor:pointer;padding:0 .2rem;border:none;background:transparent;color:var(--text)}
+.search-wrap{position:relative;flex:1;min-width:180px;max-width:340px}
+.monthnav .m-label::after{content:"\F229";font-family:"bootstrap-icons";font-size:.62rem;margin-left:.35rem;opacity:.6;vertical-align:1px}
+.mp-wrap{position:relative;max-width:100%}
+.period-pop{position:absolute;top:calc(100% + 6px);left:0;z-index:1050;width:min(340px,calc(100vw - 32px));background:var(--surface);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow-lg);padding:.7rem}
+.period-pop[hidden]{display:none}
+.period-pop .pp-year{display:flex;align-items:center;justify-content:space-between;margin-bottom:.45rem;font-weight:700}
+.period-pop .pp-year button{border:none;background:transparent;color:var(--text);width:30px;height:28px;border-radius:7px;cursor:pointer}
+.period-pop .pp-year button:hover{background:var(--surface-3)}
+.period-pop .pp-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:4px}
+.period-pop .pp-m{border:1px solid transparent;background:transparent;color:var(--text);border-radius:8px;height:34px;font-size:.84rem;text-transform:capitalize;cursor:pointer;position:relative}
+.period-pop .pp-m:hover{background:var(--surface-3)}
+.period-pop .pp-m.in{background:var(--accent-soft);border-radius:0}
+.period-pop .pp-m.edge{background:var(--accent);color:#fff;border-radius:8px;font-weight:700}
+.period-pop .pp-m.today::after{content:"";position:absolute;bottom:3px;left:50%;width:4px;height:4px;margin-left:-2px;border-radius:50%;background:currentColor;opacity:.7}
+.period-pop .pp-hint{font-size:.72rem;color:var(--text-muted);margin:.45rem 0 .1rem}
+.period-pop .pp-sep{height:1px;background:var(--border);margin:.6rem 0}
+.period-pop .pp-presets{display:flex;flex-wrap:wrap;gap:.35rem}
+.period-pop .pp-presets button{border:1px solid var(--border);background:var(--surface-2);color:var(--text);border-radius:999px;padding:.2rem .65rem;font-size:.78rem;cursor:pointer}
+.period-pop .pp-presets button:hover{border-color:var(--accent);color:var(--accent)}
+.period-pop .pp-rel{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;font-size:.8rem}
+.period-pop .pp-rel input{width:62px;height:30px;font-size:.84rem;padding:.1rem .4rem}
+.search-wrap i{position:absolute;left:.65rem;top:50%;transform:translateY(-50%);color:var(--text-muted);font-size:.9rem}
+.search-wrap input{padding-left:2rem;height:34px;font-size:.9rem}
+.search-wrap .clr{position:absolute;right:.35rem;top:50%;transform:translateY(-50%);border:none;background:transparent;color:var(--text-muted);cursor:pointer;display:none}
+.search-wrap.has-val .clr{display:block}
+.btn-tool{border:1px solid var(--border);background:var(--surface);color:var(--text);border-radius:9px;height:34px;padding:0 .7rem;font-size:.86rem;display:inline-flex;align-items:center;gap:.35rem;cursor:pointer;white-space:nowrap}
+.btn-tool:hover{background:var(--surface-3)}
+.btn-tool.is-on{background:var(--accent-soft);border-color:var(--accent);color:var(--accent);font-weight:600}
+.btn-primary-solid{background:var(--accent);border:1px solid var(--accent);color:#fff;border-radius:9px;height:34px;padding:0 .85rem;font-size:.88rem;font-weight:600;display:inline-flex;align-items:center;gap:.35rem;cursor:pointer}
+.btn-primary-solid:hover{filter:brightness(1.06)}
+.tb-more{position:relative}
+.tb-more[hidden]{display:none}
+.tb-more-pop{position:absolute;top:calc(100% + 6px);right:0;z-index:1050;width:160px;background:var(--surface);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow-lg);padding:.4rem 0}
+.tb-more-pop[hidden]{display:none}
+.tb-more-pop .btn-tool{display:flex;width:100%;border:none;background:transparent;height:auto;padding:.5rem .7rem;justify-content:flex-start}
+.tb-more-pop .btn-tool:hover{background:var(--surface-3)}
+.tb-more-pop .btn-tool.is-on{background:var(--accent-soft);color:var(--accent)}
+.tb-more-pop .btn-tool.is-on::after{content:"\2713";margin-left:auto;padding-left:1rem}
+/* Sotto i 768px Importa/Esporta restano raggiungibili dal menu ⋯ (Seleziona no: la lista mobile non ha le checkbox) */
+.tb-more-pop .btn-tool.no-mobile:not(#selModeBtn):not([style*="display: none"]){display:flex!important}
+.tb-menu-only{display:none}
+.tb-more-pop .tb-menu-only{display:inline}
+
+.filters{display:none;gap:.5rem;flex-wrap:wrap;align-items:end;padding:.75rem 1rem;background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:.75rem}
+.filters.is-on{display:flex}
+.filters .f{display:flex;flex-direction:column;gap:.2rem}
+.filters label{font-size:.72rem;color:var(--text-muted);font-weight:600}
+.filters .form-select,.filters .form-control{height:34px;font-size:.86rem;min-width:130px}
+
+.resultbar{display:none;align-items:center;gap:1.1rem;flex-wrap:wrap;padding:.6rem 1rem;background:var(--accent-soft);border:1px solid color-mix(in srgb,var(--accent) 30%,transparent);border-radius:var(--radius);margin-bottom:.75rem;font-size:.88rem}
+.resultbar.is-on{display:flex}
+.resultbar b{font-variant-numeric:tabular-nums}
+
+/* ============================================================
+   TABELLA REGISTRO (desktop)
+   Ordine colonne richiesto: DATA | SALDO | IMPORTO | DESCRIZIONE
+   ============================================================ */
+.register-scroll{max-height:calc(100vh - 300px); /* rifinito da fitRegisterScroll() in app.js */min-height:340px;overflow-y:auto;overflow-x:auto;position:relative}
+table.reg{width:100%;border-collapse:separate;border-spacing:0;font-size:.88rem;min-width:820px}
+table.reg thead th{
+  position:sticky;top:0;z-index:5;background:var(--surface-3);color:var(--text-muted);
+  font-size:.7rem;font-weight:700;letter-spacing:.03em;padding:.5rem .7rem;text-align:left;
+  border-bottom:1px solid var(--border-strong);white-space:nowrap;
+}
+table.reg th.c-saldo,table.reg th.c-imp{text-align:right}
+table.reg th.c-az{text-align:center;width:82px}
+table.reg th.c-sel{width:36px;text-align:center;padding-left:.4rem;padding-right:.4rem}
+table.reg td{padding:.42rem .7rem;border-bottom:1px solid var(--border);vertical-align:middle}
+table.reg tbody tr:hover td{background:var(--surface-2)}
+table.reg tbody tr.is-sel td{background:var(--accent-soft)}
+.tag-pill{display:inline-flex;align-items:center;font-size:.7rem;font-weight:600;padding:.08em .5em;border-radius:20px;margin-left:.3rem;vertical-align:1px;color:#fff;background:var(--accent);white-space:nowrap;cursor:default}
+.rubber{position:fixed;z-index:50;pointer-events:none;border:1px solid var(--accent);background:color-mix(in srgb,var(--accent) 18%,transparent);border-radius:3px}
+#regScroll.is-selmode{user-select:none}
+
+td.c-data{white-space:nowrap;font-weight:600;font-size:.84rem;width:112px}
+td.c-data .dow{color:var(--text-muted);font-weight:500;margin-left:.25rem;font-size:.78rem}
+td.c-data.repeat{color:var(--text-muted);font-weight:400;text-align:center;opacity:.55;font-size:1rem}
+td.c-saldo{text-align:right;font-weight:700;background:var(--surface-2);width:126px;font-variant-numeric:tabular-nums}
+td.c-imp{text-align:right;font-weight:600;width:118px;font-variant-numeric:tabular-nums}
+td.c-desc{min-width:260px}
+td.c-desc .lnk{color:var(--accent);text-decoration:none;font-size:.8rem;margin-left:.3rem}
+td.c-desc .lnk:hover{text-decoration:underline}
+td.c-desc .note{display:block;color:var(--text-muted);font-size:.76rem}
+td.c-cat{width:158px}
+td.c-az{text-align:center;white-space:nowrap;width:82px}
+.chip-cat{display:inline-flex;align-items:center;gap:.3rem;font-size:.76rem;padding:.16em .55em;border-radius:7px;background:var(--surface-3);color:var(--text-muted);white-space:nowrap}
+
+.rowbtn{width:28px;height:28px;border-radius:7px;border:1px solid transparent;background:transparent;color:var(--text-muted);cursor:pointer;display:inline-flex;align-items:center;justify-content:center}
+.rowbtn:hover{background:var(--surface-3);color:var(--text);border-color:var(--border)}
+.rowbtn.del:hover{background:var(--neg-soft);color:var(--neg);border-color:color-mix(in srgb,var(--neg) 30%,transparent)}
+.rowbtn.is-armed, .rowbtn.del.is-armed{background:var(--neg-soft);color:var(--neg);border-color:color-mix(in srgb,var(--neg) 30%,transparent)}
+
+/* giorno senza movimenti */
+tr.empty-day td{color:var(--text-muted);background:var(--surface);opacity:.72}
+tr.empty-day td.c-saldo{font-weight:600}
+tr.empty-day .no-mov{font-size:.78rem;font-style:italic;opacity:.7}
+
+/* futuro / previsto */
+tr.is-future td{font-style:italic}
+tr.is-future td.c-desc,tr.is-future td.c-data{color:var(--future-text)}
+tr.is-future td.c-imp,tr.is-future td.c-saldo{opacity:.82}
+tr.is-future td.c-imp,tr.is-future td.c-saldo{font-style:normal}
+.tag-est{font-size:.66rem;font-weight:700;padding:.1em .4em;border-radius:5px;margin-left:.35rem;vertical-align:middle;
+  background:var(--accent-soft);color:var(--accent);border:1px solid color-mix(in srgb,var(--accent) 30%,transparent)}
+.tag-real{font-size:.66rem;font-weight:700;padding:.1em .4em;border-radius:5px;margin-left:.35rem;vertical-align:middle;
+  background:var(--pos-soft);color:var(--pos);border:1px solid color-mix(in srgb,var(--pos) 30%,transparent)}
+.tag-prev{font-size:.66rem;font-weight:700;letter-spacing:.02em;padding:.1em .4em;border-radius:5px;border:1px dashed var(--border-strong);color:var(--text-muted);margin-left:.35rem;vertical-align:middle}
+
+/* riga di oggi + separatore */
+tr.today-row td{background:var(--today)!important;border-bottom-color:color-mix(in srgb,var(--today-line) 35%,transparent)}
+tr.today-row.today-first td{border-top:2px solid var(--today-line)}
+tr.today-row.today-last td{border-bottom:2px solid var(--today-line)}
+tr.today-row td.c-data{color:var(--today-text);font-weight:800}
+tr.today-sep td{padding:0;border:none;background:transparent}
+.today-sep .bar{display:flex;align-items:center;gap:.5rem;padding:.3rem .7rem;color:var(--today-text);font-size:.74rem;font-weight:700}
+.today-sep .bar::after{content:"";flex:1;height:2px;background:var(--today-line);opacity:.55;border-radius:2px}
+
+/* riga inserimento inline */
+tr.quick-row td{
+  position:sticky;top:var(--reg-head-h);z-index:4;
+  background-color:var(--surface);
+  background-image:linear-gradient(var(--accent-soft),var(--accent-soft));
+  border-bottom:2px solid var(--accent);
+}
+tr.quick-row input,tr.quick-row select{height:30px;font-size:.85rem;padding:.15rem .45rem;border-radius:7px;border:1px solid var(--border-strong);background:var(--surface);color:var(--text);width:100%}
+tr.quick-row .qi-imp{text-align:right;font-variant-numeric:tabular-nums;min-width:0;flex:1 1 auto}
+tr.quick-row td.c-imp{min-width:170px}
+tr.quick-row .seg{flex:0 0 auto}
+tr.quick-row .seg button{min-width:26px}
+.ac-box{position:fixed;z-index:3000;background:var(--surface);border:1px solid var(--border-strong);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.18);max-height:260px;overflow-y:auto;padding:.25rem;display:none}
+.ac-box.is-on{display:block}
+.ac-box .ac-item{padding:.35rem .6rem;border-radius:6px;cursor:pointer;font-size:.88rem;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ac-box .ac-item.is-act,.ac-box .ac-item:hover{background:var(--accent-soft)}
+.ac-box .ac-item mark{background:transparent;color:var(--accent);font-weight:700;padding:0}
+.seg{display:inline-flex;border:1px solid var(--border-strong);border-radius:8px;overflow:hidden;background:var(--surface)}
+.seg button{border:none;background:transparent;color:var(--text-muted);font-size:.8rem;font-weight:600;padding:.25rem .55rem;cursor:pointer}
+.seg button.is-on[data-tipo="uscita"]{background:var(--amt-neg,var(--neg));color:#fff}
+.seg button.is-on[data-tipo="entrata"]{background:var(--amt-pos,var(--pos));color:#fff}
+
+.reg-foot{display:flex;align-items:center;justify-content:space-between;gap:.6rem;flex-wrap:wrap;padding:.55rem .9rem;border-top:1px solid var(--border);background:var(--surface-2);font-size:.78rem;color:var(--text-muted)}
+.legend{display:flex;gap:.9rem;flex-wrap:wrap;align-items:center}
+.legend span{display:inline-flex;align-items:center;gap:.3rem}
+.swatch{width:11px;height:11px;border-radius:3px;display:inline-block}
+.sw-today{background:var(--today);border:1px solid var(--today-line)}
+.sw-fut{background:transparent;border:1px dashed var(--border-strong)}
+
+@keyframes hlPulse{0%,70%{box-shadow:inset 0 0 0 2px var(--accent)}100%{box-shadow:inset 0 0 0 2px transparent}}
+tr.is-hl td{background:var(--accent-soft)!important}
+tr.is-hl td:first-child{box-shadow:inset 3px 0 0 var(--accent)}
+.m-row.is-hl .m-front{background:var(--accent-soft)!important;animation:hlPulse 4s ease-out}
+.table-plain tr.is-hl td{background:var(--accent-soft);animation:hlPulse 4s ease-out}
+.rowsbar{display:flex;align-items:center;justify-content:center;gap:.5rem;flex-wrap:wrap;
+  padding:.5rem;background:var(--surface-2);border-bottom:1px solid var(--border)}
+.rowsbar.bottom{border-bottom:none;border-top:1px solid var(--border)}
+.rowsbar button{border:1px solid var(--border);background:var(--surface);color:var(--accent);
+  border-radius:8px;padding:.3rem .75rem;font-size:.83rem;font-weight:600;cursor:pointer;
+  display:inline-flex;align-items:center;gap:.35rem;min-height:34px}
+.rowsbar button:hover{background:var(--accent-soft)}
+.rowsbar button.ghost{color:var(--text-muted);font-weight:500}
+.rowsbar .edge{font-size:.78rem;color:var(--text-muted);font-style:italic}
+
+/* pannello conti virtuali */
+.vpanel{display:none;padding:.8rem 1rem;background:var(--surface);border:1px solid var(--border);
+  border-radius:var(--radius);margin-bottom:.75rem;box-shadow:var(--shadow-sm)}
+.vpanel.is-on{display:block}
+.vpanel h6{font-size:.8rem;font-weight:700;color:var(--text-muted);margin:0 0 .55rem}
+.vrow{display:flex;align-items:center;gap:.6rem;padding:.45rem 0;border-bottom:1px solid var(--border)}
+.vrow:last-of-type{border-bottom:none}
+.vrow input{width:18px;height:18px;flex:0 0 18px;accent-color:var(--accent)}
+.vrow .vn{flex:1;min-width:0;font-size:.9rem;font-weight:600;display:flex;align-items:center;gap:.4rem}
+.vrow .vm{font-size:.85rem;font-variant-numeric:tabular-nums;font-weight:600}
+.vrow.off{opacity:.5}
+.tabs{display:flex;gap:.2rem;overflow-x:auto;border-bottom:1px solid var(--border);margin-bottom:1rem;
+  -webkit-overflow-scrolling:touch;scrollbar-width:none}
+.tabs::-webkit-scrollbar{display:none}
+.tabs button{border:none;background:transparent;color:var(--text-muted);font-size:.9rem;font-weight:600;
+  padding:.6rem .85rem;cursor:pointer;white-space:nowrap;border-bottom:2px solid transparent;display:inline-flex;
+  align-items:center;gap:.4rem;border-radius:8px 8px 0 0}
+.tabs button:hover{color:var(--text);background:var(--surface-2)}
+.tabs button.is-on{color:var(--accent);border-bottom-color:var(--accent)}
+.tabs button i{font-size:.95rem}
+.set-panel{display:none}
+.set-panel.is-on{display:block}
+.admin-only{display:none}
+body.is-admin .admin-only{display:inline-flex}
+
+.impbar{display:none;align-items:center;gap:.6rem;flex-wrap:wrap;padding:.5rem .85rem;border-radius:10px;
+  background:#f0b429;color:#3a2d00;font-size:.86rem;font-weight:600;margin-bottom:.8rem}
+.impbar.is-on{display:flex}
+.impbar button{border:1px solid rgba(0,0,0,.28);background:rgba(255,255,255,.55);color:inherit;border-radius:8px;
+  padding:.25rem .65rem;font-size:.82rem;font-weight:700;cursor:pointer;margin-left:auto}
+.impbar button:hover{background:#fff}
+
+td.c-acct{width:150px}
+.chip-acct{display:inline-flex;align-items:center;gap:.3rem;font-size:.76rem;padding:.16em .55em;border-radius:7px;
+  background:var(--surface-3);color:var(--text-muted);white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis}
+.badge-ro{font-size:.68rem;font-weight:700;padding:.2em .55em;border-radius:20px;background:var(--surface-3);
+  color:var(--text-muted);border:1px solid var(--border)}
+.share-add{display:flex;gap:.5rem;margin-bottom:.6rem}
+.share-add input{flex:1;min-width:0}
+.share-add button{flex:0 0 auto;white-space:nowrap}
+.share-empty{font-size:.82rem;color:var(--text-muted);margin:0;padding:.3rem 0}
+.share-row{display:flex;align-items:center;gap:.6rem;padding:.45rem 0;border-bottom:1px solid var(--border)}
+.share-row:last-of-type{border-bottom:none}
+.share-row .sn{flex:1;min-width:0;font-size:.9rem}
+.share-row .sn small{display:block;color:var(--text-muted);font-size:.76rem}
+.share-row select{max-width:150px;height:32px;font-size:.84rem}
+.cat-row{display:flex;align-items:center;gap:.7rem;padding:.5rem .2rem;border-bottom:1px solid var(--border)}
+.cat-row:last-of-type{border-bottom:none}
+.cat-row .ce{font-size:1.3rem;width:34px;height:34px;flex:0 0 34px;display:flex;align-items:center;justify-content:center;
+  background:var(--surface-3);border-radius:9px}
+.cat-row .cn{flex:1;min-width:0;font-weight:600;font-size:.92rem}
+.cat-row .cb{font-size:.79rem;color:var(--text-muted);white-space:nowrap}
+.cat-group{font-size:.72rem;font-weight:700;color:var(--text-muted);letter-spacing:.03em;margin:.9rem 0 .2rem}
+.cat-group:first-child{margin-top:0}
+.emoji-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(44px,1fr));gap:.35rem;max-height:190px;overflow-y:auto;
+  border:1px solid var(--border);border-radius:10px;padding:.5rem;background:var(--surface-2)}
+.emoji-grid button{border:1px solid transparent;background:transparent;border-radius:8px;font-size:1.25rem;
+  height:42px;cursor:pointer;line-height:1}
+.emoji-grid button:hover{background:var(--surface-3)}
+.emoji-grid button.is-on{border-color:var(--accent);background:var(--accent-soft)}
+.badge-role{font-size:.7rem;font-weight:700;padding:.18em .55em;border-radius:20px}
+.role-admin{background:var(--accent-soft);color:var(--accent)}
+.role-user{background:var(--surface-3);color:var(--text-muted)}
+.rule-row{display:flex;align-items:flex-start;gap:.7rem;padding:.7rem .2rem;border-bottom:1px solid var(--border)}
+.rule-row:last-of-type{border-bottom:none}
+.rule-row .rn{flex:1;min-width:0}
+.rule-row .rn b{font-size:.92rem}
+.rule-row .rd{font-size:.79rem;color:var(--text-muted);margin-top:.15rem}
+.rule-row .rnext{font-size:.79rem;margin-top:.2rem;font-variant-numeric:tabular-nums}
+.rule-row.off{opacity:.5}
+.rule-row .racts{display:flex;gap:.25rem;flex:0 0 auto}
+.ru-ok{color:var(--neg);font-weight:600}
+.ru-no{color:var(--text-muted);font-style:italic}
+.vnote{font-size:.78rem;color:var(--text-muted);margin:.6rem 0 0}
+.vtot{display:flex;justify-content:space-between;font-size:.86rem;font-weight:700;padding-top:.55rem;border-top:1px solid var(--border);margin-top:.3rem}
+
+/* barra selezione multipla */
+.bulkbar{display:none;align-items:center;gap:.6rem;flex-wrap:wrap;padding:.55rem .9rem;background:var(--text);color:var(--surface);border-radius:var(--radius);margin-bottom:.7rem;font-size:.86rem}
+.bulkbar.is-on{display:flex}
+.bulkbar button{border:1px solid rgba(255,255,255,.3);background:transparent;color:inherit;border-radius:8px;padding:.25rem .6rem;font-size:.82rem;cursor:pointer}
+.bulkbar button:hover{background:rgba(255,255,255,.14)}
+#bulkDel.is-armed{background:rgba(255,255,255,.2);border-color:rgba(255,255,255,.5)}
+
+/* ============================================================
+   EMPTY STATE
+   ============================================================ */
+.dropzone{border:2px dashed var(--border-strong);border-radius:12px;padding:1.6rem 1rem;text-align:center;
+  color:var(--text-muted);cursor:pointer;background:var(--surface-2)}
+.dropzone:hover,.dropzone.over{border-color:var(--accent);background:var(--accent-soft);color:var(--accent)}
+.dropzone i{font-size:1.8rem;display:block;margin-bottom:.4rem}
+.map-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:.6rem}
+.prev-wrap{max-height:230px;overflow:auto;border:1px solid var(--border);border-radius:10px}
+.prev-wrap table{width:100%;font-size:.8rem;border-collapse:collapse;min-width:460px}
+.prev-wrap th{position:sticky;top:0;background:var(--surface-3);color:var(--text-muted);font-size:.7rem;
+  font-weight:700;padding:.4rem .55rem;text-align:left;white-space:nowrap}
+.prev-wrap td{padding:.35rem .55rem;border-top:1px solid var(--border);white-space:nowrap}
+.prev-wrap tr.dup td{opacity:.5;text-decoration:line-through}
+.imp-stats{display:flex;gap:1.2rem;flex-wrap:wrap;font-size:.85rem;margin:.7rem 0 .4rem}
+.imp-stats b{font-variant-numeric:tabular-nums}
+.empty{text-align:center;padding:2.6rem 1rem;color:var(--text-muted)}
+.empty i{font-size:2rem;opacity:.45;display:block;margin-bottom:.5rem}
+.empty h6{color:var(--text);font-weight:700;margin-bottom:.25rem}
+
+/* ============================================================
+   MOBILE / TABLET
+   Breakpoint alzato a 768px: sotto questa soglia la tabella
+   desktop non è utilizzabile (min-width 820px)
+   ============================================================ */
+.only-mobile{display:none}
+.mobile-list{display:none}
+.fab,.bottomnav,.sheet-wrap{display:none}
+
+@media (max-width:991px){
+  /* La sidebar esce di scena qui, ma barra in basso e FAB compaiono solo sotto i 768px:
+     senza questo, tra 769 e 991px non ci sarebbe modo di aprire il menu. */
+  #menuBtn,.menuBtn{display:inline-flex}
+  /* Chiusa: niente ombra (sborderebbe dal bordo sinistro) e fuori dalla tab-order, dopo l'animazione di chiusura */
+  .sidebar{transform:translateX(-100%);box-shadow:none;visibility:hidden;
+    transition:transform .25s ease,box-shadow .25s ease,visibility 0s linear .25s}
+  .sidebar.is-on{transform:translateX(0);box-shadow:var(--shadow-lg);visibility:visible;
+    transition:transform .25s ease,box-shadow .25s ease,visibility 0s}
+  .main{margin-left:0}
+}
+
+@media (max-width:768px){
+  body{font-size:15px}
+  .main{padding:.6rem .7rem calc(84px + var(--safe-b))}
+  .only-mobile{display:block}
+  .no-mobile{display:none!important}
+
+  .topbar{margin-bottom:.6rem;gap:.4rem}
+  .page-h{font-size:1.05rem}
+
+  .kpis{grid-template-columns:1fr 1fr;gap:.5rem}
+  body.kpis-off #kpis{display:none}
+  .kpi.k-wide,.kpi.k-wide-sm{grid-column:1/-1}
+  .kpi .k-v{font-size:1.15rem}
+
+  .register-scroll{display:none}
+  .mobile-list{display:block;max-height:none}
+
+  .toolbar{gap:.35rem}
+  .search-wrap{max-width:none}
+  .mp-wrap{flex:1 1 auto}
+  #todayBtn{flex:0 0 auto}
+  .monthnav{width:100%;min-width:132px}
+  .monthnav .m-label{flex:1 1 auto;min-width:0;padding:0 .3rem;font-size:.84rem}
+
+  /* --- riga mobile a due livelli: la descrizione è protagonista --- */
+  .m-day{position:sticky;top:0;z-index:3;display:flex;align-items:baseline;justify-content:space-between;
+    gap:.6rem;padding:.34rem .8rem;background:var(--surface-3);color:var(--text-muted);
+    font-size:.76rem;font-weight:700;border-top:1px solid var(--border);border-bottom:1px solid var(--border)}
+  .m-day .d-l{text-transform:capitalize}
+  .m-day .d-r{font-variant-numeric:tabular-nums;font-weight:700;color:var(--text)}
+  .m-day.is-today{background:var(--today);color:var(--today-text);border-color:var(--today-line)}
+  .m-day.is-today .d-r{color:var(--today-text)}
+  .m-day.is-future{font-style:italic}
+
+  .m-row{position:relative;overflow:hidden;background:var(--surface);border-bottom:1px solid var(--border);touch-action:pan-y}
+  .m-actions{position:absolute;inset:0 0 0 auto;width:132px;display:flex;background:var(--surface-3)}
+  .m-actions button{flex:1;border:none;color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.15rem;font-size:.66rem;font-weight:600}
+  .m-actions .a-edit{background:var(--accent)}
+  .m-actions .a-del{background:var(--neg)}
+  .m-actions .a-del.is-armed{background:var(--neg-soft);color:var(--neg)}
+  .m-actions i{font-size:1.05rem}
+  .m-front{position:relative;z-index:2;background:var(--surface);display:flex;align-items:center;gap:.7rem;
+    padding:.62rem .8rem;width:100%;text-align:left;border:none;color:inherit;transition:transform .22s cubic-bezier(.2,.7,.3,1)}
+  .m-row.swiped .m-front{transform:translateX(-132px)}
+  .m-row.is-future .m-front{background-color:var(--surface);
+    background-image:repeating-linear-gradient(135deg,transparent 0 9px,color-mix(in srgb,var(--text-muted) 8%,transparent) 9px 10px)}
+  .m-row.is-sel .m-front{background:var(--accent-soft)}
+
+  .m-ico{width:34px;height:34px;flex:0 0 34px;border-radius:10px;background:var(--surface-3);display:flex;align-items:center;justify-content:center;font-size:1.05rem}
+  .m-mid{flex:1;min-width:0}
+  .m-desc{display:block;font-weight:600;font-size:.93rem;line-height:1.25;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .m-meta{display:block;font-size:.75rem;color:var(--text-muted);margin-top:.1rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .m-right{text-align:right;flex:0 0 auto;white-space:nowrap}
+  .m-imp{display:block;font-weight:700;font-size:1rem;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+  .m-saldo{display:none;font-size:.73rem;color:var(--text-muted);font-variant-numeric:tabular-nums;margin-top:.1rem}
+  body.show-msaldo .m-saldo{display:block}
+  .m-row.is-future .m-desc,.m-row.is-future .m-meta{font-style:italic}
+  .m-row.is-future .m-desc{color:var(--future-text)}
+
+  .rowsbar{padding:.6rem .5rem}
+  .rowsbar button{min-height:42px;padding:.4rem 1rem;font-size:.88rem}
+  .m-today-line{display:flex;align-items:center;gap:.5rem;padding:.4rem .8rem;font-size:.72rem;font-weight:800;color:var(--today-text);background:var(--today)}
+  .m-today-line::after{content:"";flex:1;height:2px;background:var(--today-line);opacity:.5;border-radius:2px}
+
+  /* --- FAB + bottom nav --- */
+  .fab{display:flex;position:fixed;right:16px;bottom:calc(74px + var(--safe-b));z-index:1030;
+    width:58px;height:58px;border-radius:19px;border:none;background:var(--accent);color:#fff;
+    align-items:center;justify-content:center;font-size:1.6rem;box-shadow:0 8px 22px rgba(43,88,214,.45);cursor:pointer}
+  .fab:active{transform:scale(.94)}
+
+  .bottomnav{display:grid;grid-template-columns:repeat(4,1fr);position:fixed;left:0;right:0;bottom:0;z-index:1029;
+    background:var(--surface);border-top:1px solid var(--border);padding-bottom:var(--safe-b);box-shadow:0 -2px 14px rgba(16,24,40,.08)}
+  .bottomnav button{border:none;background:transparent;color:var(--text-muted);padding:.5rem .2rem .55rem;
+    display:flex;flex-direction:column;align-items:center;gap:.15rem;font-size:.68rem;font-weight:600;cursor:pointer}
+  .bottomnav button i{font-size:1.25rem}
+  .bottomnav button.is-on{color:var(--accent)}
+}
+
+/* ============================================================
+   BOTTOM SHEET INSERIMENTO (mobile) / modal centrato (desktop)
+   ============================================================ */
+.sheet-wrap{position:fixed;inset:0;z-index:1060;display:none}
+.sheet-wrap.is-on{display:block}
+.sheet-bg{position:absolute;inset:0;background:rgba(8,11,20,.55)}
+.sheet{
+  position:absolute;left:0;right:0;bottom:0;background:var(--surface);color:var(--text);
+  border-radius:20px 20px 0 0;max-height:94vh;display:flex;flex-direction:column;
+  box-shadow:var(--shadow-lg);animation:sheetUp .26s cubic-bezier(.2,.8,.3,1);
+  padding-bottom:var(--safe-b);
+}
+@keyframes sheetUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+@media (min-width:769px){
+  .sheet{position:relative;margin:4vh auto;max-width:560px;border-radius:16px;max-height:92vh;animation:none;left:auto;right:auto;bottom:auto}
+  .sheet-wrap.is-on{display:flex;align-items:flex-start;justify-content:center;overflow-y:auto}
+}
+.sheet-grab{width:38px;height:4px;border-radius:4px;background:var(--border-strong);margin:.5rem auto .1rem}
+.sheet-h{display:flex;align-items:center;justify-content:space-between;padding:.5rem 1rem .3rem}
+.sheet-h h5{margin:0;font-size:1rem;font-weight:700}
+.sheet-b{padding:.4rem 1rem 1rem;overflow-y:auto}
+.sheet-f{padding:.7rem 1rem;border-top:1px solid var(--border);display:flex;gap:.6rem;background:var(--surface)}
+.sheet-f .btn-primary-solid{flex:1;height:46px;justify-content:center;font-size:.98rem}
+
+/* toggle uscita/entrata grande */
+.tipo-toggle{display:grid;grid-template-columns:1fr 1fr;gap:.4rem;background:var(--surface-3);padding:.25rem;border-radius:12px;margin-bottom:.9rem}
+.tipo-toggle button{border:none;background:transparent;color:var(--text-muted);font-weight:700;font-size:.94rem;
+  padding:.6rem;border-radius:9px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:.4rem}
+.tipo-toggle button[data-tipo="uscita"].is-on{background:var(--amt-neg,var(--neg));color:#fff}
+.tipo-toggle button[data-tipo="entrata"].is-on{background:var(--amt-pos,var(--pos));color:#fff}
+
+/* campo importo protagonista */
+.amount-field{display:flex;align-items:center;justify-content:center;gap:.4rem;padding:.5rem 0 .2rem}
+.amount-field .cur{font-size:1.7rem;font-weight:600;color:var(--text-muted)}
+.amount-field input{
+  border:none;background:transparent;color:var(--amt-neg,var(--neg));font-size:2.7rem;font-weight:700;
+  text-align:center;width:100%;max-width:280px;padding:0;font-variant-numeric:tabular-nums;letter-spacing:-.03em;
+}
+.amount-field input:focus{outline:none}
+.amount-field.is-entrata input{color:var(--amt-pos,var(--pos))}
+.amount-hint{text-align:center;font-size:.76rem;color:var(--text-muted);margin-bottom:.9rem}
+
+.field-lbl{font-size:.76rem;font-weight:700;color:var(--text-muted);margin:.85rem 0 .35rem;display:flex;align-items:center;justify-content:space-between}
+.chips{display:flex;gap:.4rem;flex-wrap:wrap}
+.chip{border:1px solid var(--border);background:var(--surface);color:var(--text);border-radius:20px;
+  padding:.38rem .8rem;font-size:.86rem;cursor:pointer;white-space:nowrap;min-height:38px;display:inline-flex;align-items:center;gap:.3rem}
+.chip:hover{background:var(--surface-3)}
+.chip.is-on{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+
+.cat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:.45rem}
+@media (max-width:360px){.cat-grid{grid-template-columns:repeat(3,1fr)}}
+.cat-cell{border:1px solid var(--border);background:var(--surface);border-radius:12px;padding:.55rem .2rem;
+  display:flex;flex-direction:column;align-items:center;gap:.2rem;cursor:pointer;min-height:66px;justify-content:center;color:var(--text)}
+.cat-cell .e{font-size:1.35rem;line-height:1}
+.cat-cell .n{font-size:.68rem;text-align:center;line-height:1.15;color:var(--text-muted)}
+.cat-cell:hover{background:var(--surface-2)}
+.cat-cell.is-on{border-color:var(--accent);background:var(--accent-soft);box-shadow:inset 0 0 0 1px var(--accent)}
+.cat-cell.is-on .n{color:var(--accent);font-weight:700}
+
+.rec-notice{background:var(--accent-soft);border:1px solid color-mix(in srgb,var(--accent) 28%,transparent);
+  border-radius:10px;padding:.65rem .8rem;margin-bottom:.9rem;font-size:.84rem}
+.rec-notice b{display:block;margin-bottom:.2rem}
+.rec-notice .form-check{margin-top:.5rem}
+.rec-notice .form-check-label{font-size:.83rem}
+.more-toggle{width:100%;border:1px dashed var(--border-strong);background:transparent;color:var(--text-muted);
+  border-radius:10px;padding:.55rem;font-size:.86rem;font-weight:600;cursor:pointer;margin-top:1rem}
+.more-toggle:hover{background:var(--surface-2)}
+.more-box{display:none;margin-top:.7rem}
+.more-box.is-on{display:block}
+
+/* ============================================================
+   TOAST
+   ============================================================ */
+.toasts{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(90px + var(--safe-b));z-index:1080;
+  display:flex;flex-direction:column;gap:.5rem;width:min(440px,calc(100vw - 24px))}
+@media (min-width:769px){.toasts{bottom:20px;left:auto;right:20px;transform:none}}
+.toast-item{background:var(--text);color:var(--surface);border-radius:11px;padding:.7rem .9rem;
+  display:flex;align-items:center;gap:.7rem;box-shadow:var(--shadow-md);font-size:.88rem;animation:toastIn .2s ease}
+@keyframes toastIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+.toast-item .t-msg{flex:1}
+.toast-item .t-act{border:none;background:transparent;color:var(--sidebar-mark);font-weight:700;cursor:pointer;font-size:.86rem}
+
+/* ============================================================
+   CONTI / STATISTICHE
+   ============================================================ */
+.acct-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(268px,1fr));gap:.9rem}
+.acct-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:1rem;box-shadow:var(--shadow-sm)}
+.acct-card .a-top{display:flex;align-items:center;justify-content:space-between;gap:.5rem;margin-bottom:.5rem}
+.acct-card .a-name{font-weight:700;display:flex;align-items:center;gap:.45rem}
+.acct-card .a-bal{font-size:1.45rem;font-weight:700;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.acct-card .a-meta{font-size:.79rem;color:var(--text-muted);margin-top:.1rem}
+.acct-card .a-actions{margin-top:.8rem;display:flex;flex-wrap:wrap;gap:.4rem}
+.acct-card .acct-drag-handle{position:absolute;top:.55rem;right:.55rem;color:var(--text-muted);opacity:.45;cursor:grab;font-size:.95rem;line-height:1}
+.acct-card .acct-drag-handle:hover{opacity:.85}
+.acct-card{position:relative}
+.acct-card.dnd-dragging{opacity:.35;box-shadow:none}
+.acct-card.dnd-over{outline:2px dashed var(--accent);outline-offset:-2px}
+.meter{height:6px;border-radius:4px;background:var(--surface-3);overflow:hidden;margin:.5rem 0 .25rem}
+.meter i{display:block;height:100%;border-radius:4px;background:var(--accent)}
+.meter i.warn{background:#e0a800}
+.meter i.over{background:var(--neg)}
+
+.stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:1rem}
+/* statistiche dinamiche */
+.st-grid{grid-template-columns:repeat(auto-fit,minmax(min(100%,440px),1fr));margin-bottom:1rem}
+.st-grid .pcard{margin-bottom:0;min-width:0}
+.st-grid .st-wide{grid-column:1/-1}
+.st-ctl{display:inline-flex;align-items:center;gap:.5rem;flex-wrap:wrap}
+.st-note{font-size:.76rem;color:var(--text-muted);font-weight:500}
+.seg.st-seg button.is-on{background:var(--accent);color:#fff}
+.st-chart{position:relative;height:250px}
+.st-chart.tall{height:300px}
+.st-chart.pie{height:230px;flex:0 0 230px;max-width:100%}
+.st-pie{display:flex;gap:1rem;align-items:center;flex-wrap:wrap}
+.st-legend{flex:1 1 180px;min-width:0;max-height:230px;overflow-y:auto;font-size:.84rem}
+.st-legend .lg{display:grid;grid-template-columns:auto 1fr auto auto;gap:.1rem .5rem;align-items:center;width:100%;border:none;background:transparent;color:var(--text);text-align:left;padding:.28rem .35rem;border-radius:7px;cursor:pointer}
+.st-legend .lg:hover{background:var(--surface-3)}
+.st-legend .lg.is-sel{background:var(--accent-soft)}
+.st-legend .lg.static{cursor:default}
+.st-legend .lg.static:hover{background:transparent}
+.st-legend i.sw{width:10px;height:10px;border-radius:3px;display:inline-block}
+.st-legend .lg .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.st-legend .lg .pc{color:var(--text-muted);font-variant-numeric:tabular-nums;font-size:.78rem}
+.st-legend .lg .am{font-variant-numeric:tabular-nums;font-weight:600}
+.st-chips{display:flex;flex-wrap:wrap;gap:.4rem;margin:-.25rem 0 .75rem}
+.st-chips:empty{display:none}
+.st-chips .chip-f{display:inline-flex;align-items:center;gap:.35rem;border:1px solid var(--border);background:var(--surface);border-radius:20px;padding:.12rem .3rem .12rem .65rem;font-size:.8rem}
+.st-chips .chip-f button{border:none;background:transparent;color:var(--text-muted);width:20px;height:20px;border-radius:50%;cursor:pointer;line-height:1;padding:0}
+.st-chips .chip-f button:hover{background:var(--surface-3);color:var(--text)}
+.pcard-b.tight{padding:.35rem .6rem}
+.st-list .r{display:grid;grid-template-columns:1fr auto;gap:0 .6rem;padding:.5rem .3rem;border-bottom:1px solid var(--border);align-items:center}
+.st-list .r:last-child{border-bottom:none}
+.st-list .r .m{font-size:.74rem;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.st-list .r .d{font-size:.88rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.st-list .r .a{font-variant-numeric:tabular-nums;font-weight:700;grid-row:1/3;grid-column:2;text-align:right}
+.st-empty{color:var(--text-muted);font-size:.86rem;padding:1.2rem .3rem;text-align:center}
+.ms-wrap{position:relative;min-width:150px}
+.ms-btn{height:38px;text-align:left;cursor:pointer;display:flex;align-items:center;gap:.4rem;font-size:.9rem;padding:.375rem 2rem .375rem .75rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border:1px solid var(--border);border-radius:var(--bs-border-radius,.375rem);background:var(--surface);color:var(--text);width:100%}
+.ms-btn.has-val{border-color:var(--accent);color:var(--accent);font-weight:600}
+.ms-pop{position:absolute;top:calc(100% + 4px);left:0;z-index:1050;min-width:240px;max-height:300px;overflow-y:auto;background:var(--surface);border:1px solid var(--border);border-radius:11px;box-shadow:var(--shadow-lg);padding:.35rem}
+.ms-pop[hidden]{display:none}
+.ms-pop label{display:flex;align-items:center;gap:.5rem;padding:.3rem .45rem;border-radius:7px;cursor:pointer;font-size:.86rem;margin:0;color:var(--text)}
+.ms-pop label:hover{background:var(--surface-3)}
+.ms-pop .ms-clr{display:block;width:100%;text-align:left;border:none;background:transparent;color:var(--accent);font-size:.8rem;padding:.3rem .45rem;cursor:pointer}
+@media (max-width:768px){.st-chart.pie{flex-basis:100%;height:210px}.st-grid{grid-template-columns:1fr}}
+.budget-row{display:grid;grid-template-columns:1fr auto;gap:.2rem .6rem;padding:.55rem 0;border-bottom:1px solid var(--border)}
+.budget-row:last-child{border-bottom:none}
+.budget-row .b-name{font-size:.9rem;font-weight:600;display:flex;align-items:center;gap:.4rem}
+.budget-row .b-val{font-size:.86rem;font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
+.budget-row .b-bar{grid-column:1/-1}
+.budget-row .b-sub{grid-column:1/-1;font-size:.74rem;color:var(--text-muted);display:flex;justify-content:space-between}
+.delta-up{color:var(--neg);font-weight:600}
+.delta-down{color:var(--pos);font-weight:600}
+
+.table-plain{width:100%;font-size:.87rem;border-collapse:collapse}
+.table-plain th{text-align:left;font-size:.72rem;color:var(--text-muted);font-weight:700;padding:.5rem .7rem;border-bottom:1px solid var(--border)}
+.table-plain td{padding:.55rem .7rem;border-bottom:1px solid var(--border);vertical-align:middle}
+.table-plain tr:last-child td{border-bottom:none}
+.table-plain tbody tr:hover td{background:var(--surface-2)}
+.table-plain .r{text-align:right;font-variant-numeric:tabular-nums}
+.tbl-wrap{overflow-x:auto}
+@media (max-width:768px){.tbl-wrap table{min-width:640px}}
+
+.dot-on{color:var(--pos);font-size:1.1rem;line-height:1}
+.dot-off{color:var(--text-muted);opacity:.45;font-size:1.1rem;line-height:1}
+.kbd{display:inline-block;border:1px solid var(--border-strong);border-bottom-width:2px;border-radius:5px;
+  padding:0 .32em;font-size:.74rem;font-family:ui-monospace,monospace;background:var(--surface-2);color:var(--text-muted)}
+/* campi data: testo nel formato della lingua + pulsante calendario (il nativo resta nascosto, ISO) */
+.dateup{position:relative;display:block}
+.dateup.is-fixed{display:inline-block}
+.dateup > input[type="date"]{position:absolute!important;left:0!important;bottom:0!important;width:1px!important;height:1px!important;padding:0!important;margin:0!important;border:0!important;opacity:0!important;pointer-events:none!important}
+.dateup .dateup-txt{padding-right:1.9rem;font-variant-numeric:tabular-nums}
+.dateup .dateup-btn{position:absolute;right:.2rem;top:50%;transform:translateY(-50%);width:1.5rem;height:1.5rem;padding:0;border:0;border-radius:6px;background:transparent;color:var(--text-muted);display:inline-flex;align-items:center;justify-content:center;cursor:pointer;font-size:.85rem;line-height:1}
+.dateup .dateup-btn:hover:not(:disabled){color:var(--accent);background:var(--accent-soft)}
+.dateup .dateup-btn:disabled{opacity:.4;cursor:default}
+.dateup .dateup-txt::placeholder{color:var(--text-muted);opacity:1;-webkit-text-fill-color:var(--text-muted)}
+.dateup .dateup-txt.is-invalid{border-color:var(--neg)!important}
+tr.quick-row td.c-data{width:128px;min-width:128px}
+tr.quick-row .dateup .dateup-txt{padding:.15rem 1.7rem .15rem .4rem;font-size:.82rem}
+tr.quick-row .dateup .dateup-btn{width:1.35rem;height:1.35rem}
+
+</style>
+</head>
+<body>
+
+<!-- ============================================================
+     LOGIN
+     ============================================================ -->
+<div class="login-screen" id="loginScreen">
+  <div class="login-card">
+    <div class="login-mark"><i class="bi bi-wallet2"></i> PFM</div>
+    <p class="login-sub">Il tuo registro finanziario, saldo per saldo.</p>
+    <form id="loginForm">
+      <div class="mb-3">
+        <label class="form-label fw-semibold" for="loginUser">Nome utente</label>
+        <input type="text" class="form-control" id="loginUser" value="" autocomplete="username" required>
+      </div>
+      <div class="mb-4">
+        <label class="form-label fw-semibold" for="loginPass">Password</label>
+        <input type="password" class="form-control" id="loginPass" value="" autocomplete="current-password" required>
+      </div>
+      <button type="submit" class="btn-primary-solid w-100" style="height:44px;justify-content:center">Entra</button>
+
+    </form>
+  </div>
+</div>
+
+<!-- ============================================================
+     APP
+     ============================================================ -->
+<div class="app" id="app">
+
+  <div class="scrim" id="scrim"></div>
+
+  <aside class="sidebar" id="sidebar">
+    <div class="brand">
+      <i class="bi bi-wallet2"></i>
+      <span class="bwrap"><span>PFM</span><span class="ver">v0.1</span></span>
+      <span class="spacer"></span>
+      <button class="icon-btn" id="privacyBtn" aria-label="Nascondi gli importi" title="Nascondi gli importi"><i class="bi bi-eye" id="privacyIcon"></i></button>
+      <button class="icon-btn" id="themeBtn" aria-label="Cambia tema" title="Cambia tema"><i class="bi bi-moon-stars" id="themeIcon"></i></button>
+    </div>
+
+    <div class="side-label">
+      <span data-i18n="nav.conti">Conti</span>
+      <button class="icon-btn" id="newAcctSide" style="width:24px;height:24px" aria-label="Nuovo conto" title="Nuovo conto"><i class="bi bi-plus-lg" style="font-size:.8rem"></i></button>
+    </div>
+    <div class="acct-list" id="acctList"></div>
+
+    <div class="side-sep"></div>
+
+    <nav class="nav-list" id="navList" aria-label="Sezioni">
+      <button class="nav-btn" data-page="statistiche"><i class="bi bi-bar-chart"></i> <span data-i18n="nav.statistiche">Statistiche</span></button>
+      <button class="nav-btn" data-page="ricorrenti"><i class="bi bi-arrow-repeat"></i> <span data-i18n="nav.ricorrenti">Ricorrenti</span></button>
+      <button class="nav-btn" data-page="trasferimenti"><i class="bi bi-arrow-left-right"></i> <span data-i18n="nav.trasferimenti">Trasferimenti</span></button>
+      <button class="nav-btn" data-page="conti"><i class="bi bi-bank"></i> <span data-i18n="nav.conti">Conti</span></button>
+      <button class="nav-btn" data-page="impostazioni"><i class="bi bi-sliders"></i> <span data-i18n="nav.impostazioni">Impostazioni</span></button>
+    </nav>
+
+    <div class="side-user" id="sideUser"></div>
+  </aside>
+
+  <main class="main" id="main">
+    <div class="impbar" id="impBar"></div>
+
+    <!-- ============ REGISTRO ============ -->
+    <section class="page is-on" id="page-registro">
+      <div class="topbar">
+        <div class="d-flex align-items-center gap-2" style="min-width:0">
+          <button class="btn-tool only-mobile" id="menuBtn" aria-label="Menu" style="width:34px;padding:0;justify-content:center"><i class="bi bi-list"></i></button>
+          <h1 class="page-h" id="regTitle"></h1>
+        </div>
+        <div class="d-flex align-items-center gap-2 no-mobile">
+          <button class="btn-tool" id="quickRowBtn" title="Riga di inserimento rapido (N)"><i class="bi bi-input-cursor-text"></i> Riga rapida</button>
+          <button class="btn-primary-solid" id="newEntryBtn"><i class="bi bi-plus-lg"></i> Nuova voce</button>
+        </div>
+        <button class="btn-tool only-mobile" id="kpiToggleBtn" aria-controls="kpis" aria-expanded="true" aria-label="Nascondi i riepiloghi dei saldi" title="Nascondi i riepiloghi dei saldi" style="width:34px;padding:0;justify-content:center"><i class="bi bi-chevron-bar-up"></i></button>
+      </div>
+
+      <div class="kpis" id="kpis"></div>
+
+      <div class="toolbar">
+        <div class="mp-wrap">
+          <div class="monthnav">
+            <button id="prevMonth" aria-label="Mese precedente"><i class="bi bi-chevron-left"></i></button>
+            <button class="m-label" id="monthLabel" title="Scegli i mesi da mostrare" aria-haspopup="dialog" aria-expanded="false">agosto 2026</button>
+            <input type="date" id="jumpDate" style="position:absolute;opacity:0;width:1px;height:1px;pointer-events:none" tabindex="-1" aria-hidden="true">
+            <button id="nextMonth" aria-label="Mese successivo"><i class="bi bi-chevron-right"></i></button>
+          </div>
+          <div class="period-pop" id="periodPop" role="dialog" aria-label="Periodo mostrato" hidden></div>
+        </div>
+        <button class="btn-tool" id="todayBtn"><i class="bi bi-crosshair"></i> Oggi</button>
+
+        <div class="search-wrap" id="searchWrap">
+          <i class="bi bi-search"></i>
+          <input type="search" class="form-control" id="searchInput" placeholder="Cerca descrizione o importo…" aria-label="Cerca nel registro">
+          <button class="clr" id="searchClear" aria-label="Pulisci ricerca"><i class="bi bi-x-circle-fill"></i></button>
+        </div>
+
+        <button class="btn-tool" id="filterBtn"><i class="bi bi-funnel"></i> Filtri</button>
+        <button class="btn-tool is-on" id="emptyDaysBtn" title="Mostra o nascondi i giorni senza movimenti"><i class="bi bi-calendar-x"></i> <span>Giorni vuoti</span></button>
+        <button class="btn-tool" id="virtualBtn" style="display:none"><i class="bi bi-piggy-bank"></i> <span id="virtualBtnLabel">Salvadanai</span></button>
+        <button class="btn-tool no-mobile" id="selModeBtn"><i class="bi bi-check2-square"></i> Seleziona</button>
+        <button class="btn-tool no-mobile" id="regImportBtn" title="Importa un estratto conto in questo conto"><i class="bi bi-upload"></i> Importa</button>
+        <button class="btn-tool no-mobile" id="regExportBtn" title="Esporta questo conto in CSV"><i class="bi bi-download"></i><span class="tb-menu-only" data-i18n="reg.export">Esporta CSV</span></button>
+        <div class="tb-more" id="tbMore" hidden>
+          <button class="btn-tool" id="tbMoreBtn" aria-haspopup="true" aria-expanded="false" aria-label="Altre azioni"><i class="bi bi-three-dots"></i></button>
+          <div class="tb-more-pop" id="tbMorePop" hidden></div>
+        </div>
+      </div>
+
+      <div class="vpanel" id="vPanel"></div>
+
+      <div class="filters" id="filters">
+        <div class="f">
+          <label for="fCat">Categoria</label>
+          <select class="form-select" id="fCat"><option value="">Tutte</option></select>
+        </div>
+        <div class="f">
+          <label for="fTag" data-i18n="tag.filter">Tag</label>
+          <select class="form-select" id="fTag"><option value="">Tutti</option></select>
+        </div>
+        <div class="f">
+          <label for="fTipo">Tipo</label>
+          <select class="form-select" id="fTipo">
+            <option value="">Tutti</option><option value="uscita">Solo uscite</option><option value="entrata">Solo entrate</option>
+          </select>
+        </div>
+        <div class="f">
+          <label for="fFrom">Dal</label>
+          <input type="date" class="form-control" id="fFrom">
+        </div>
+        <div class="f">
+          <label for="fTo">Al</label>
+          <input type="date" class="form-control" id="fTo">
+        </div>
+        <div class="f">
+          <label for="fMin">Importo min</label>
+          <input type="text" inputmode="decimal" autocomplete="off" class="form-control" id="fMin" placeholder="0" style="min-width:100px">
+        </div>
+        <div class="f">
+          <label for="fMax">Importo max</label>
+          <input type="text" inputmode="decimal" autocomplete="off" class="form-control" id="fMax" placeholder="∞" style="min-width:100px">
+        </div>
+        <div class="f">
+          <label>&nbsp;</label>
+          <button class="btn-tool" id="fReset"><i class="bi bi-arrow-counterclockwise"></i> Azzera</button>
+        </div>
+      </div>
+
+      <div class="resultbar" id="resultBar"></div>
+      <div class="bulkbar" id="bulkBar"></div>
+
+      <div class="pcard" style="margin-bottom:0">
+        <div class="rowsbar" id="rowsTop"></div>
+        <div class="register-scroll" id="regScroll">
+          <table class="reg">
+            <thead>
+              <tr id="regHead">
+                <th class="c-sel" style="display:none"><input type="checkbox" id="selAll" aria-label="Seleziona tutto"></th>
+                <th class="c-data">Data</th>
+                <th class="c-saldo">Saldo</th>
+                <th class="c-imp">Importo</th>
+                <th class="c-desc">Descrizione</th>
+                <th class="c-acct" style="display:none">Conto</th>
+                <th class="c-cat">Categoria</th>
+                <th class="c-az">Azioni</th>
+              </tr>
+            </thead>
+            <tbody id="regBody"></tbody>
+          </table>
+        </div>
+
+        <div class="mobile-list" id="mobileList"></div>
+        <div class="rowsbar bottom" id="rowsBottom"></div>
+
+        <div class="reg-foot">
+          <span id="regInfo"></span>
+          <span class="legend">
+            <span><i class="swatch sw-today"></i> oggi</span>
+            <span><i class="swatch sw-fut"></i> previsto</span>
+            <span class="no-mobile"><span class="kbd">N</span> nuova · <span class="kbd">/</span> cerca · <span class="kbd">T</span> oggi</span>
+          </span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ STATISTICHE ============ -->
+    <section class="page" id="page-statistiche">
+      <div class="topbar">
+        <div class="d-flex align-items-center gap-2">
+          <button class="btn-tool only-mobile menuBtn" aria-label="Menu" style="width:34px;padding:0;justify-content:center"><i class="bi bi-list"></i></button>
+          <h1 class="page-h"><i class="bi bi-bar-chart"></i> <span data-i18n="stat.title">Statistiche</span></h1>
+        </div>
+      </div>
+
+      <div class="toolbar">
+        <select class="form-select" id="statsAccount" style="max-width:230px;height:34px;font-size:.88rem" aria-label="Conto analizzato"></select>
+        <div class="mp-wrap">
+          <div class="monthnav">
+            <button id="stPrev" aria-label="Periodo precedente"><i class="bi bi-chevron-left"></i></button>
+            <button class="m-label" id="stMonthLabel" title="Scegli i mesi da analizzare" aria-haspopup="dialog" aria-expanded="false"></button>
+            <button id="stNext" aria-label="Periodo successivo"><i class="bi bi-chevron-right"></i></button>
+          </div>
+          <div class="period-pop" id="stPeriodPop" role="dialog" aria-label="Periodo analizzato" hidden></div>
+        </div>
+        <button class="btn-tool" id="stToday"><i class="bi bi-crosshair"></i> <span data-i18n="st.today">Oggi</span></button>
+        <div class="search-wrap" id="stSearchWrap">
+          <i class="bi bi-search"></i>
+          <input type="search" class="form-control" id="stSearch" placeholder="Cerca nei movimenti…" aria-label="Cerca">
+          <button class="clr" id="stSearchClear" aria-label="Pulisci ricerca"><i class="bi bi-x-circle-fill"></i></button>
+        </div>
+        <button class="btn-tool" id="stFilterBtn"><i class="bi bi-funnel"></i> <span data-i18n="st.filters">Filtri</span></button>
+        <select class="form-select" id="stGran" style="max-width:150px;height:34px;font-size:.88rem" aria-label="Dettaglio temporale">
+          <option value="auto" data-i18n="st.gran.auto">Dettaglio: auto</option>
+          <option value="day" data-i18n="st.gran.day">Per giorno</option>
+          <option value="week" data-i18n="st.gran.week">Per settimana</option>
+          <option value="month" data-i18n="st.gran.month">Per mese</option>
+        </select>
+        <button class="btn-tool is-on" id="stForecastBtn" title="Includi i movimenti previsti"><i class="bi bi-graph-up-arrow"></i> <span data-i18n="st.forecast">Previsioni</span></button>
+        <button class="btn-tool" id="stTransfersBtn" title="Includi i trasferimenti tra conti"><i class="bi bi-arrow-left-right"></i> <span data-i18n="st.transfers">Trasferimenti</span></button>
+      </div>
+
+      <div class="filters" id="stFilters">
+        <div class="f">
+          <label data-i18n="st.f.cats">Categorie</label>
+          <div class="ms-wrap" id="stCatMs"></div>
+        </div>
+        <div class="f">
+          <label data-i18n="st.f.tags">Tag</label>
+          <div class="ms-wrap" id="stTagMs"></div>
+        </div>
+        <div class="f">
+          <label for="stTipo">Tipo</label>
+          <select class="form-select" id="stTipo">
+            <option value="">Tutti</option><option value="uscita">Solo uscite</option><option value="entrata">Solo entrate</option>
+          </select>
+        </div>
+        <div class="f">
+          <label for="stFrom">Dal</label>
+          <input type="date" class="form-control" id="stFrom">
+        </div>
+        <div class="f">
+          <label for="stTo">Al</label>
+          <input type="date" class="form-control" id="stTo">
+        </div>
+        <div class="f">
+          <label for="stMin">Importo min</label>
+          <input type="text" inputmode="decimal" autocomplete="off" class="form-control" id="stMin" placeholder="0" style="min-width:100px">
+        </div>
+        <div class="f">
+          <label for="stMax">Importo max</label>
+          <input type="text" inputmode="decimal" autocomplete="off" class="form-control" id="stMax" placeholder="∞" style="min-width:100px">
+        </div>
+        <div class="f">
+          <label>&nbsp;</label>
+          <button class="btn-tool" id="stReset"><i class="bi bi-arrow-counterclockwise"></i> <span data-i18n="st.reset">Azzera</span></button>
+        </div>
+      </div>
+
+      <div class="resultbar is-on" id="stResultBar"></div>
+      <div class="st-chips" id="stChips"></div>
+
+      <div class="kpis" id="statsKpis"></div>
+
+      <div class="stat-grid st-grid">
+        <div class="pcard st-wide">
+          <div class="pcard-h">
+            <span data-i18n="stat.andamento">Andamento del saldo</span>
+            <span class="st-ctl">
+              <span class="seg st-seg" data-seg="balSplit" id="stBalSeg">
+                <button type="button" data-v="0" data-i18n="st.bal.total">Totale</button>
+                <button type="button" data-v="1" data-i18n="st.bal.split">Per conto</button>
+              </span>
+              <span class="st-note" data-i18n="st.c.balance_note">tratteggio = previsione · non risente dei filtri</span>
+            </span>
+          </div>
+          <div class="pcard-b"><div class="st-chart tall"><canvas id="chartBal"></canvas></div></div>
+        </div>
+
+        <div class="pcard st-wide">
+          <div class="pcard-h"><span data-i18n="st.c.flow">Entrate e uscite nel tempo</span><span class="st-note" id="stFlowNote"></span></div>
+          <div class="pcard-b"><div class="st-chart"><canvas id="chartFlow"></canvas></div></div>
+        </div>
+
+        <div class="pcard">
+          <div class="pcard-h">
+            <span data-i18n="st.c.pie">Ripartizione</span>
+            <span class="st-ctl">
+              <span class="seg st-seg" data-seg="pieBy">
+                <button type="button" data-v="cat" data-i18n="st.by.cat">Categorie</button>
+                <button type="button" data-v="tag" data-i18n="st.by.tag">Tag</button>
+                <button type="button" data-v="acct" data-i18n="st.by.acct">Conti</button>
+              </span>
+              <span class="seg st-seg" data-seg="pieKind">
+                <button type="button" data-v="out" data-i18n="st.kind.out">Uscite</button>
+                <button type="button" data-v="in" data-i18n="st.kind.in">Entrate</button>
+              </span>
+            </span>
+          </div>
+          <div class="pcard-b">
+            <div class="st-pie">
+              <div class="st-chart pie"><canvas id="chartPie"></canvas></div>
+              <div class="st-legend" id="stPieLegend"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="pcard">
+          <div class="pcard-h">
+            <span data-i18n="st.c.trend">Andamento per voce</span>
+            <span class="st-ctl">
+              <span class="seg st-seg" data-seg="trendBy">
+                <button type="button" data-v="cat" data-i18n="st.by.cat">Categorie</button>
+                <button type="button" data-v="tag" data-i18n="st.by.tag">Tag</button>
+                <button type="button" data-v="acct" data-i18n="st.by.acct">Conti</button>
+              </span>
+              <span class="seg st-seg" data-seg="trendKind">
+                <button type="button" data-v="out" data-i18n="st.kind.out">Uscite</button>
+                <button type="button" data-v="in" data-i18n="st.kind.in">Entrate</button>
+              </span>
+              <span class="seg st-seg" data-seg="trendMode">
+                <button type="button" data-v="line" data-i18n="st.mode.line">Linee</button>
+                <button type="button" data-v="stack" data-i18n="st.mode.stack">Barre</button>
+              </span>
+            </span>
+          </div>
+          <div class="pcard-b">
+            <div class="st-chart"><canvas id="chartTrend"></canvas></div>
+            <div class="st-note" id="stTrendNote" style="margin-top:.5rem"></div>
+          </div>
+        </div>
+
+        <div class="pcard">
+          <div class="pcard-h"><span id="stPaceTitle">Ritmo di spesa</span><span class="st-note" data-i18n="st.c.pace_note">cumulato, confronto con il periodo precedente</span></div>
+          <div class="pcard-b"><div class="st-chart"><canvas id="chartPace"></canvas></div></div>
+        </div>
+
+        <div class="pcard">
+          <div class="pcard-h"><span id="stWeekTitle">Per giorno della settimana</span><span class="st-note" data-i18n="st.c.weekday_note">media giornaliera</span></div>
+          <div class="pcard-b"><div class="st-chart"><canvas id="chartWeek"></canvas></div></div>
+        </div>
+
+        <div class="pcard">
+          <div class="pcard-h">
+            <span data-i18n="st.c.top">Movimenti più alti</span>
+            <span class="seg st-seg" data-seg="topKind">
+              <button type="button" data-v="out" data-i18n="st.kind.out">Uscite</button>
+              <button type="button" data-v="in" data-i18n="st.kind.in">Entrate</button>
+            </span>
+          </div>
+          <div class="pcard-b tight" id="stTop"></div>
+        </div>
+
+        <div class="pcard">
+          <div class="pcard-h"><span data-i18n="st.c.freq">Voci più frequenti</span><span class="st-note" data-i18n="st.c.freq_note">per descrizione, ordinate per totale</span></div>
+          <div class="pcard-b tight" id="stFreq"></div>
+        </div>
+      </div>
+
+      <div class="pcard">
+        <div class="pcard-h"><span data-i18n="stat.budget">Budget e confronto con il periodo precedente</span><span class="st-note" id="stBudgetNote"></span></div>
+        <div class="pcard-b" id="budgetList"></div>
+      </div>
+    </section>
+
+    <!-- ============ RICORRENTI ============ -->
+    <section class="page" id="page-ricorrenti">
+      <div class="topbar">
+        <div class="d-flex align-items-center gap-2">
+          <button class="btn-tool only-mobile menuBtn" aria-label="Menu" style="width:34px;padding:0;justify-content:center"><i class="bi bi-list"></i></button>
+          <h1 class="page-h"><i class="bi bi-arrow-repeat"></i> Ricorrenti</h1>
+        </div>
+        <button class="btn-primary-solid" id="newRecBtn"><i class="bi bi-plus-lg"></i> Nuova ricorrenza</button>
+      </div>
+
+      <div class="kpis" id="recKpis"></div>
+
+      <div class="pcard">
+        <div class="pcard-h"><span>Regole attive</span><span style="font-size:.78rem;color:var(--text-muted)">Generano le righe previste nel registro</span>
+          <label style="font-size:.82rem;display:flex;gap:.4rem;align-items:center;cursor:pointer"><input type="checkbox" id="recGroup" checked> Raggruppa per conto</label></div>
+        <div class="tbl-wrap">
+          <table class="table-plain">
+            <thead>
+              <tr>
+                <th data-recsort="desc">Descrizione</th><th data-recsort="acct">Conto</th><th class="r" data-recsort="amount">Importo</th><th data-recsort="pattern">Ripetizione</th>
+                <th data-recsort="next">Prossima</th><th data-recsort="weekend">Weekend</th><th data-recsort="end">Fine</th><th style="text-align:center" data-recsort="active">Attiva</th><th class="r">Azioni</th>
+              </tr>
+            </thead>
+            <tbody id="recBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ TRASFERIMENTI ============ -->
+    <section class="page" id="page-trasferimenti">
+      <div class="topbar">
+        <div class="d-flex align-items-center gap-2">
+          <button class="btn-tool only-mobile menuBtn" aria-label="Menu" style="width:34px;padding:0;justify-content:center"><i class="bi bi-list"></i></button>
+          <h1 class="page-h"><i class="bi bi-arrow-left-right"></i> Trasferimenti</h1>
+        </div>
+      </div>
+
+      <div class="pcard" style="max-width:640px">
+        <div class="pcard-h"><span>Sposta denaro tra due conti</span></div>
+        <div class="pcard-b">
+          <form id="transferForm">
+            <div class="row g-3">
+              <div class="col-12">
+                <label class="form-label fw-semibold" for="trFrom">Da</label>
+                <select class="form-select" id="trFrom"></select>
+              </div>
+              <div class="col-12 text-center" style="margin:-.4rem 0">
+                <button type="button" class="btn-tool" id="trSwap" aria-label="Inverti i conti"><i class="bi bi-arrow-down-up"></i></button>
+              </div>
+              <div class="col-12">
+                <label class="form-label fw-semibold" for="trTo">A</label>
+                <select class="form-select" id="trTo"></select>
+              </div>
+              <div class="col-sm-6">
+                <label class="form-label fw-semibold" for="trAmount">Importo</label>
+                <input type="text" inputmode="decimal" class="form-control" id="trAmount" placeholder="0,00">
+                <div id="trAvail" style="font-size:.78rem;color:var(--text-muted);margin-top:.25rem"></div>
+              </div>
+              <div class="col-sm-6">
+                <label class="form-label fw-semibold" for="trDate">Data</label>
+                <input type="date" class="form-control" id="trDate">
+              </div>
+              <div class="col-12">
+                <label class="form-label fw-semibold" for="trDesc">Descrizione</label>
+                <input type="text" class="form-control" id="trDesc" placeholder="Es. accantonamento mensile">
+              </div>
+              <div class="col-12">
+                <button type="submit" class="btn-primary-solid" id="trSubmit">Esegui trasferimento</button>
+                <button type="button" class="btn-tool" id="trCancel" style="display:none;margin-left:.5rem">Annulla modifica</button>
+              </div>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <div class="pcard">
+        <div class="pcard-h"><span data-i18n="tr.history">Trasferimenti</span>
+          <select class="form-select" id="trPeriod" style="max-width:240px;height:34px;font-size:.88rem" aria-label="Periodo">
+            <option value="around" data-i18n="tr.period.around">Ultimi 3 mesi e prossimi 3</option>
+            <option value="year" data-i18n="tr.period.year">Anno corrente</option>
+            <option value="last12" data-i18n="tr.period.last12">Ultimi 12 mesi</option>
+            <option value="next12" data-i18n="tr.period.next12">Prossimi 12 mesi</option>
+            <option value="all" data-i18n="tr.period.all">Tutto lo storico e prossimi 12 mesi</option>
+          </select></div>
+        <div class="tbl-wrap">
+          <table class="table-plain">
+            <thead><tr><th>Data</th><th>Da</th><th>A</th><th class="r">Importo</th><th>Descrizione</th><th class="r">Azioni</th></tr></thead>
+            <tbody id="trHistory"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ CONTI ============ -->
+    <section class="page" id="page-conti">
+      <div class="topbar">
+        <div class="d-flex align-items-center gap-2">
+          <button class="btn-tool only-mobile menuBtn" aria-label="Menu" style="width:34px;padding:0;justify-content:center"><i class="bi bi-list"></i></button>
+          <h1 class="page-h"><i class="bi bi-bank"></i> Conti</h1>
+        </div>
+        <button class="btn-primary-solid" id="newAcctBtn"><i class="bi bi-plus-lg"></i> Nuovo conto</button>
+      </div>
+      <div class="kpis" id="contiKpis"></div>
+      <div class="acct-grid" id="acctGrid"></div>
+    </section>
+
+    <!-- ============ IMPOSTAZIONI ============ -->
+    <section class="page" id="page-impostazioni">
+      <div class="topbar">
+        <div class="d-flex align-items-center gap-2">
+          <button class="btn-tool only-mobile menuBtn" aria-label="Menu" style="width:34px;padding:0;justify-content:center"><i class="bi bi-list"></i></button>
+          <h1 class="page-h"><i class="bi bi-sliders"></i> Impostazioni</h1>
+        </div>
+      </div>
+
+      <div class="tabs" id="setTabs" role="tablist">
+        <button class="is-on" data-tab="vis"><i class="bi bi-eye"></i> Visualizzazione</button>
+        <button data-tab="reg"><i class="bi bi-list-columns-reverse"></i> Registro</button>
+        <button data-tab="cat"><i class="bi bi-tags"></i> Categorie</button>
+        <button data-tab="tag"><i class="bi bi-tag"></i> Tag</button>
+        <button data-tab="hol" class="admin-only"><i class="bi bi-calendar-x"></i> Festività</button>
+        <button data-tab="usr" class="admin-only"><i class="bi bi-people"></i> Utenti</button>
+        <button data-tab="acc" class="admin-only"><i class="bi bi-bank"></i> Conti</button>
+      </div>
+
+      <!-- ---- Visualizzazione ---- -->
+      <div class="set-panel is-on" id="tab-vis">
+        <div class="pcard" style="max-width:660px">
+          <div class="pcard-b">
+            <div class="mb-3">
+              <label class="form-label fw-semibold" for="setTheme">Tema</label>
+              <select class="form-select" id="setTheme" style="max-width:220px">
+                <option value="auto">Automatico (sistema)</option>
+                <option value="light">Chiaro</option>
+                <option value="dark">Scuro</option>
+              </select>
+            </div>
+            <div class="mb-3">
+              <label class="form-label fw-semibold" data-i18n="set.colors">Colori degli importi</label>
+              <div class="d-flex flex-wrap align-items-center gap-3">
+                <span class="d-inline-flex align-items-center gap-2">
+                  <input type="color" class="form-control form-control-color" id="setColorPos" value="#0e7a4a" aria-label="Importi positivi">
+                  <span data-i18n="set.color_pos">Positivi</span>
+                  <button type="button" class="btn-tool" id="setColorPosReset" data-i18n="set.color_reset">Predefinito</button>
+                </span>
+                <span class="d-inline-flex align-items-center gap-2">
+                  <input type="color" class="form-control form-control-color" id="setColorNeg" value="#c3282f" aria-label="Importi negativi">
+                  <span data-i18n="set.color_neg">Negativi</span>
+                  <button type="button" class="btn-tool" id="setColorNegReset" data-i18n="set.color_reset">Predefinito</button>
+                </span>
+              </div>
+              <div class="form-text" data-i18n="set.colors_hint">Predefiniti: verde per le entrate, rosso per le uscite. Si applicano a importi, saldi e selettore entrata/uscita.</div>
+            </div>
+            <div class="mb-3">
+              <label class="form-label fw-semibold" for="setHolidays" data-i18n="set.holidays">Calendario delle festività</label>
+              <select class="form-select" id="setHolidays" style="max-width:320px"></select>
+              <div class="form-text" data-i18n="set.holidays_hint">Usato per spostare ricorrenze (venerdì/lunedì/salta) e addebiti delle carte sul giorno lavorativo giusto. Solo festività nazionali.</div>
+            </div>
+            <div class="form-check form-switch mb-2">
+              <input class="form-check-input" type="checkbox" id="setSign" checked>
+              <label class="form-check-label" for="setSign">Mostra sempre il segno + / − sugli importi</label>
+            </div>
+            <div class="form-check form-switch mb-2">
+              <input class="form-check-input" type="checkbox" id="setMSaldo">
+              <label class="form-check-label" for="setMSaldo">Su telefono, mostra il saldo progressivo su ogni riga</label>
+            </div>
+            <div class="form-check form-switch">
+              <input class="form-check-input" type="checkbox" id="setPrivacy">
+              <label class="form-check-label" for="setPrivacy">Nascondi gli importi (modalità discreta)</label>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ---- Registro ---- -->
+      <div class="set-panel" id="tab-reg">
+        <div class="pcard" style="max-width:660px">
+          <div class="pcard-b">
+            <div class="form-check form-switch mb-2">
+              <input class="form-check-input" type="checkbox" id="setEmptyDays" checked>
+              <label class="form-check-label" for="setEmptyDays">Mostra i giorni senza movimenti</label>
+            </div>
+            <div class="form-check form-switch mb-3">
+              <input class="form-check-input" type="checkbox" id="setFuture" checked>
+              <label class="form-check-label" for="setFuture">Mostra le righe previste dalle ricorrenze</label>
+            </div>
+            <hr>
+            <h6 class="fw-bold" style="font-size:.9rem">Giorni mostrati</h6>
+            <div class="row g-3" style="max-width:520px">
+              <div class="col-4">
+                <label class="form-label" for="setAbove" style="font-size:.82rem">Prima della data</label>
+                <input type="number" class="form-control" id="setAbove" min="0" max="120" value="15">
+              </div>
+              <div class="col-4">
+                <label class="form-label" for="setBelow" style="font-size:.82rem">Dopo la data</label>
+                <input type="number" class="form-control" id="setBelow" min="1" max="120" value="30">
+              </div>
+              <div class="col-4">
+                <label class="form-label" for="setStep" style="font-size:.82rem">Passo dei pulsanti</label>
+                <input type="number" class="form-control" id="setStep" min="5" max="90" value="15">
+              </div>
+            </div>
+            <p style="font-size:.8rem;color:var(--text-muted);margin:.6rem 0 0">
+              Su telefono partono da 7 e 14 giorni: valori più bassi rendono la lista scorrevole in pochi swipe.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- ---- Categorie ---- -->
+      <div class="set-panel" id="tab-cat">
+        <div class="pcard" style="max-width:660px">
+          <div class="pcard-h">
+            <span>Categorie</span>
+            <button class="btn-tool" id="newCatBtn"><i class="bi bi-plus-lg"></i> Nuova categoria</button>
+          </div>
+          <div class="pcard-b" id="catList"></div>
+        </div>
+      </div>
+
+      <!-- ---- Tag ---- -->
+      <div class="set-panel" id="tab-tag">
+        <div class="pcard" style="max-width:660px">
+          <div class="pcard-h">
+            <span data-i18n="tag.title">Tag</span>
+            <button class="btn-tool" id="newTagBtn"><i class="bi bi-plus-lg"></i> <span data-i18n="tag.new">Nuovo tag</span></button>
+          </div>
+          <div class="pcard-b" id="tagList"></div>
+        </div>
+      </div>
+
+      <!-- ---- Festività (solo amministratori) ---- -->
+      <div class="set-panel" id="tab-hol">
+        <div class="pcard" style="max-width:860px">
+          <div class="pcard-h">
+            <span data-i18n="hol.title">Calendari delle festività</span>
+            <button class="btn-tool" id="holNewBtn"><i class="bi bi-plus-lg"></i> <span data-i18n="hol.new">Nuovo calendario</span></button>
+          </div>
+          <div class="pcard-b">
+            <p style="font-size:.84rem;color:var(--text-muted)" data-i18n="hol.intro">Ogni utente sceglie un calendario nelle proprie impostazioni. Le regole stabiliscono quali giorni non sono lavorativi quando una ricorrenza o un addebito carta viene spostato.</p>
+            <div class="d-flex align-items-center gap-2 flex-wrap mb-3">
+              <select class="form-select" id="holCal" style="max-width:300px"></select>
+              <input type="text" class="form-control" id="holName" style="max-width:260px" maxlength="100" aria-label="Nome">
+              <button class="btn-tool" id="holRename"><i class="bi bi-check2"></i> <span data-i18n="hol.rename">Rinomina</span></button>
+              <button class="btn-tool" id="holDelete" style="color:var(--neg)"><i class="bi bi-trash3"></i> <span data-i18n="hol.delete">Elimina</span></button>
+            </div>
+            <div id="holRules"></div>
+            <div class="d-flex gap-2 flex-wrap mt-2 mb-3">
+              <button class="btn-tool" id="holAddRule"><i class="bi bi-plus-lg"></i> <span data-i18n="hol.add_rule">Aggiungi regola</span></button>
+              <button class="btn-primary-solid" id="holSave" data-i18n="hol.save">Salva regole</button>
+            </div>
+            <div class="d-flex align-items-center gap-2 flex-wrap">
+              <label class="form-label mb-0 fw-semibold" for="holYear" data-i18n="hol.preview">Anteprima anno</label>
+              <input type="number" class="form-control" id="holYear" style="width:100px" min="2000" max="2100">
+              <button class="btn-tool" id="holPreviewBtn"><i class="bi bi-eye"></i> <span data-i18n="hol.show">Mostra festività</span></button>
+            </div>
+            <div id="holPreview" style="margin-top:.7rem;font-size:.86rem"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ---- Utenti (solo amministratori) ---- -->
+      <div class="set-panel" id="tab-usr">
+        <div class="pcard" style="max-width:860px">
+          <div class="pcard-h">
+            <span>Utenti</span>
+            <button class="btn-tool" id="newUserBtn"><i class="bi bi-person-plus"></i> Nuovo utente</button>
+          </div>
+          <div class="tbl-wrap">
+            <table class="table-plain">
+              <thead><tr><th>Nome</th><th>Email</th><th>Ruolo</th><th>Stato</th><th>Conti</th><th>Ultimo accesso</th><th class="r">Azioni</th></tr></thead>
+              <tbody id="usersBody"></tbody>
+            </table>
+          </div>
+        </div>
+        <p style="font-size:.83rem;color:var(--text-muted);max-width:860px">
+          L'impersonificazione serve a vedere l'app con i permessi di un altro utente, per verificare cosa gli è visibile.
+          Nella versione reale ogni sessione impersonata va tracciata in un registro di controllo.
+        </p>
+      </div>
+
+      <!-- ---- Conti di tutti gli utenti (solo amministratori) ---- -->
+      <div class="set-panel" id="tab-acc">
+        <div class="pcard">
+          <div class="pcard-h"><span>Tutti i conti del sistema</span>
+            <span style="font-size:.78rem;color:var(--text-muted)">riassegnazione e cancellazione</span></div>
+          <div class="tbl-wrap">
+            <table class="table-plain">
+              <thead><tr><th>Conto</th><th>Tipo</th><th>Proprietario</th><th>Condiviso con</th><th class="r">Saldo</th><th>Movimenti</th><th class="r">Azioni</th></tr></thead>
+              <tbody id="adminAcctBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <p style="font-size:.83rem;color:var(--text-muted);max-width:660px">
+        Il resto delle impostazioni (festività, giorno di accredito, notifiche push) è da ridefinire insieme al backend.
+      </p>
+    </section>
+
+    <!-- ============ PROFILO ============ -->
+    <section class="page" id="page-profilo">
+      <div class="topbar">
+        <div class="d-flex align-items-center gap-2">
+          <button class="btn-tool only-mobile menuBtn" aria-label="Menu" style="width:34px;padding:0;justify-content:center"><i class="bi bi-list"></i></button>
+          <h1 class="page-h"><i class="bi bi-person-circle"></i> <span data-i18n="profile.title">Profilo</span></h1>
+        </div>
+      </div>
+
+      <div class="pcard" style="max-width:660px">
+        <div class="pcard-h"><span data-i18n="profile.account">Account</span></div>
+        <div class="pcard-b">
+          <dl class="row mb-0" id="profileInfo" style="font-size:.92rem"></dl>
+        </div>
+      </div>
+
+      <div class="pcard" style="max-width:660px;margin-top:1rem">
+        <div class="pcard-h"><span data-i18n="profile.language">Lingua</span></div>
+        <div class="pcard-b">
+          <label class="form-label fw-semibold" for="profLang" data-i18n="profile.language_label">Lingua dell'interfaccia</label>
+          <select class="form-select" id="profLang" style="max-width:220px"></select>
+          <p style="font-size:.8rem;color:var(--text-muted);margin:.6rem 0 0" data-i18n="profile.language_hint">La lingua determina anche il formato di date e importi.</p>
+        </div>
+      </div>
+
+      <div class="pcard" style="max-width:660px;margin-top:1rem">
+        <div class="pcard-h"><span data-i18n="profile.password">Cambio password</span></div>
+        <div class="pcard-b">
+          <form id="pwForm" autocomplete="off">
+            <div class="mb-3">
+              <label class="form-label fw-semibold" for="pwCur" data-i18n="profile.pw_current">Password attuale</label>
+              <input type="password" class="form-control" id="pwCur" autocomplete="current-password" required>
+            </div>
+            <div class="mb-3">
+              <label class="form-label fw-semibold" for="pwNew" data-i18n="profile.pw_new">Nuova password (min. 8 caratteri)</label>
+              <input type="password" class="form-control" id="pwNew" autocomplete="new-password" minlength="8" required>
+            </div>
+            <div class="mb-3">
+              <label class="form-label fw-semibold" for="pwNew2" data-i18n="profile.pw_confirm">Conferma nuova password</label>
+              <input type="password" class="form-control" id="pwNew2" autocomplete="new-password" minlength="8" required>
+            </div>
+            <button type="submit" class="btn-tool" id="pwSave"><i class="bi bi-key"></i> <span data-i18n="profile.pw_submit">Cambia password</span></button>
+          </form>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- FAB + bottom nav (solo mobile) -->
+  <button class="fab" id="fab" aria-label="Nuova voce"><i class="bi bi-plus-lg"></i></button>
+  <nav class="bottomnav" id="bottomNav" aria-label="Navigazione principale">
+    <button data-page="registro" class="is-on"><i class="bi bi-list-columns-reverse"></i> <span data-i18n="nav.registro">Registro</span></button>
+    <button data-page="statistiche"><i class="bi bi-bar-chart"></i> <span data-i18n="nav.statistiche">Statistiche</span></button>
+    <button data-page="ricorrenti"><i class="bi bi-arrow-repeat"></i> <span data-i18n="nav.ricorrenti">Ricorrenti</span></button>
+    <button data-page="__menu"><i class="bi bi-three-dots"></i> <span data-i18n="nav.more">Altro</span></button>
+  </nav>
+</div>
+
+<div class="toasts" id="toasts"></div>
+
+<!-- ============================================================
+     SHEET: NUOVA VOCE
+     Su mobile è un bottom sheet, su desktop un modal centrato.
+     Ordine dei campi per frequenza d'uso: importo → categoria →
+     data → descrizione → conto. Il resto sta sotto "Altri dettagli".
+     ============================================================ -->
+<div class="sheet-wrap" id="entrySheet" role="dialog" aria-modal="true" aria-labelledby="entryTitle">
+  <div class="sheet-bg" data-close></div>
+  <div class="sheet">
+    <div class="sheet-grab only-mobile"></div>
+    <div class="sheet-h">
+      <h5 id="entryTitle">Nuova voce</h5>
+      <button class="icon-btn" style="color:var(--text-muted)" data-close aria-label="Chiudi"><i class="bi bi-x-lg"></i></button>
+    </div>
+    <div class="sheet-b">
+      <div class="rec-notice" id="recNotice" style="display:none">
+        <b id="recNoticeTitle"></b>
+        <span id="recNoticeText"></span>
+        <div class="form-check">
+          <input class="form-check-input" type="checkbox" id="recApplyAll">
+          <label class="form-check-label" for="recApplyAll">Aggiorna anche la regola, non solo questa voce</label>
+        </div>
+      </div>
+
+      <div class="tipo-toggle" id="tipoToggle" role="group" aria-label="Tipo di movimento">
+        <button type="button" data-tipo="uscita" class="is-on"><i class="bi bi-arrow-down-left"></i> Uscita</button>
+        <button type="button" data-tipo="entrata"><i class="bi bi-arrow-up-right"></i> Entrata</button>
+      </div>
+
+      <div class="amount-field" id="amountField">
+        <span class="cur">€</span>
+        <input type="text" inputmode="decimal" id="eAmount" placeholder="0,00" aria-label="Importo" autocomplete="off">
+      </div>
+      <div class="amount-hint" id="amountHint">Inserisci l’importo senza segno: lo decide il selettore qui sopra.</div>
+
+      <div class="field-lbl"><span>Categoria</span><span id="catHint" style="font-weight:500"></span></div>
+      <div class="cat-grid" id="catGrid"></div>
+
+      <div class="field-lbl"><span>Data</span><span id="dateEcho" style="font-weight:500"></span></div>
+      <div class="chips" id="dateChips">
+        <button type="button" class="chip is-on" data-day="0">Oggi</button>
+        <button type="button" class="chip" data-day="-1">Ieri</button>
+        <button type="button" class="chip" data-day="-2" id="chipTwo">L’altro ieri</button>
+        <label class="chip" style="gap:.4rem"><i class="bi bi-calendar3"></i>
+          <input type="date" id="eDate" style="border:none;background:transparent;color:inherit;font:inherit;padding:0;width:118px">
+        </label>
+      </div>
+
+      <div class="field-lbl"><span>Descrizione</span><span style="font-weight:500">facoltativa</span></div>
+      <input type="text" class="form-control" id="eDesc" placeholder="Es. Spesa Conad" autocomplete="off">
+
+      <div id="tagBox">
+        <div class="field-lbl"><span data-i18n="tag.title">Tag</span><span style="font-weight:500" data-i18n="tag.optional">facoltativi</span></div>
+        <div class="chips" id="tagChips"></div>
+      </div>
+
+      <div class="field-lbl"><span>Conto</span></div>
+      <div class="chips" id="acctChips"></div>
+
+      <button type="button" class="more-toggle" id="moreToggle">Altri dettagli <i class="bi bi-chevron-down"></i></button>
+      <div class="more-box" id="moreBox">
+        <div class="field-lbl"><span>Note</span></div>
+        <input type="text" class="form-control" id="eNote" placeholder="Promemoria, numero scontrino…">
+
+        <div class="form-check form-switch mt-3">
+          <input class="form-check-input" type="checkbox" id="eRecurring">
+          <label class="form-check-label fw-semibold" for="eRecurring">Si ripete nel tempo</label>
+        </div>
+        <div id="eRecBox" style="display:none;margin-top:.6rem">
+          <div class="chips" id="recQuick">
+            <button type="button" class="chip is-on" data-freq="monthly">Ogni mese</button>
+            <button type="button" class="chip" data-freq="weekly">Ogni settimana</button>
+            <button type="button" class="chip" data-freq="yearly">Ogni anno</button>
+          </div>
+          <p style="font-size:.8rem;color:var(--text-muted);margin:.55rem 0 0">
+            Per salti, comportamento nei weekend e data di fine, apri
+            <button type="button" class="btn-tool" style="height:28px;padding:0 .5rem;font-size:.8rem" id="toAdvanced">le opzioni avanzate</button>
+          </p>
+        </div>
+      </div>
+    </div>
+    <div class="sheet-f">
+      <button class="btn-tool no-mobile" style="height:46px;padding:0 1rem" id="saveAndNew" title="Ctrl+Invio">Salva e nuova</button>
+      <button class="btn-primary-solid" id="saveEntry">Salva voce</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================
+     MODAL: CATEGORIA
+     ============================================================ -->
+<div class="modal fade" id="catModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title fw-bold" id="catModalTitle">Nuova categoria</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Chiudi"></button>
+      </div>
+      <div class="modal-body">
+        <div class="row g-3">
+          <div class="col-sm-7">
+            <label class="form-label fw-semibold" for="ctNome">Descrizione</label>
+            <input type="text" class="form-control" id="ctNome" placeholder="Es. Alimentari">
+          </div>
+          <div class="col-sm-5">
+            <label class="form-label fw-semibold">Tipo</label>
+            <div class="seg w-100" id="ctTipo" style="justify-content:stretch">
+              <button type="button" data-tipo="uscita" class="is-on" style="flex:1">Uscita</button>
+              <button type="button" data-tipo="entrata" style="flex:1">Entrata</button>
+            </div>
+            <p style="font-size:.76rem;color:var(--text-muted);margin:.3rem 0 0" id="ctTipoHint"></p>
+          </div>
+          <div class="col-12">
+            <label class="form-label fw-semibold">Icona</label>
+            <div class="d-flex align-items-center gap-2 mb-2">
+              <span id="ctPreview" style="font-size:1.6rem;width:46px;height:46px;display:flex;align-items:center;
+                justify-content:center;background:var(--surface-3);border-radius:11px">✳️</span>
+              <input type="text" class="form-control" id="ctEmoji" style="max-width:120px" maxlength="4" placeholder="o incolla">
+              <span style="font-size:.78rem;color:var(--text-muted)">scegli sotto oppure incolla una qualsiasi emoji</span>
+            </div>
+            <div class="emoji-grid" id="ctEmojiGrid"></div>
+          </div>
+          <div class="col-sm-6" id="ctBudgetBox">
+            <label class="form-label fw-semibold" for="ctBudget">Budget mensile (€, facoltativo)</label>
+            <input type="text" inputmode="decimal" class="form-control" id="ctBudget" placeholder="nessuno">
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer" style="justify-content:space-between">
+        <button type="button" class="btn-tool" id="ctDelete" style="display:none;color:var(--neg);border-color:color-mix(in srgb,var(--neg) 35%,transparent)">
+          <i class="bi bi-trash3"></i> Elimina categoria</button>
+        <span style="display:flex;gap:.5rem;margin-left:auto">
+          <button type="button" class="btn-tool" data-bs-dismiss="modal">Annulla</button>
+          <button type="button" class="btn-primary-solid" id="ctSave">Salva categoria</button>
+        </span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================
+     MODAL: TAG
+     ============================================================ -->
+<div class="modal fade" id="tagModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title fw-bold" id="tagModalTitle" data-i18n="tag.new">Nuovo tag</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Chiudi"></button>
+      </div>
+      <div class="modal-body">
+        <div class="row g-3">
+          <div class="col-sm-8">
+            <label class="form-label fw-semibold" for="tgLabel" data-i18n="tag.label">Etichetta</label>
+            <input type="text" class="form-control" id="tgLabel" maxlength="64" placeholder="Es. Vacanza 2026">
+          </div>
+          <div class="col-sm-4">
+            <label class="form-label fw-semibold" for="tgColor" data-i18n="tag.color">Colore</label>
+            <input type="color" class="form-control form-control-color w-100" id="tgColor" value="#6366f1">
+          </div>
+          <div class="col-12">
+            <label class="form-label fw-semibold" for="tgDesc" data-i18n="tag.description">Descrizione</label>
+            <textarea class="form-control" id="tgDesc" rows="3" maxlength="500" placeholder="A cosa serve questo tag"></textarea>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer" style="justify-content:space-between">
+        <button type="button" class="btn-tool" id="tgDelete" style="display:none;color:var(--neg);border-color:color-mix(in srgb,var(--neg) 35%,transparent)">
+          <i class="bi bi-trash3"></i> <span data-i18n="tag.delete">Elimina tag</span></button>
+        <span style="display:flex;gap:.5rem;margin-left:auto">
+          <button type="button" class="btn-tool" data-bs-dismiss="modal">Annulla</button>
+          <button type="button" class="btn-primary-solid" id="tgSave" data-i18n="tag.save">Salva tag</button>
+        </span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================
+     MODAL: UTENTE
+     ============================================================ -->
+<div class="modal fade" id="userModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title fw-bold" id="userModalTitle">Nuovo utente</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Chiudi"></button>
+      </div>
+      <div class="modal-body">
+        <div class="row g-3">
+          <div class="col-sm-6">
+            <label class="form-label fw-semibold" for="usNome">Nome</label>
+            <input type="text" class="form-control" id="usNome" placeholder="Nome e cognome">
+          </div>
+          <div class="col-sm-6">
+            <label class="form-label fw-semibold" for="usEmail">Email</label>
+            <input type="email" class="form-control" id="usEmail" autocomplete="off" placeholder="nome@dominio.it">
+          </div>
+          <div class="col-sm-6">
+            <label class="form-label fw-semibold" for="usRuolo">Ruolo</label>
+            <select class="form-select" id="usRuolo">
+              <option value="utente">Utente</option>
+              <option value="admin">Amministratore</option>
+            </select>
+            <p style="font-size:.76rem;color:var(--text-muted);margin:.3rem 0 0">
+              L’amministratore gestisce utenti e categorie.</p>
+          </div>
+          <div class="col-sm-6">
+            <label class="form-label fw-semibold" for="usPass">Password</label>
+            <input type="password" class="form-control" id="usPass" autocomplete="new-password" placeholder="lascia vuoto per non cambiarla">
+          </div>
+          <div class="col-12">
+            <div class="form-check form-switch">
+              <input class="form-check-input" type="checkbox" id="usAttivo" checked>
+              <label class="form-check-label" for="usAttivo">Utente attivo</label>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer" style="justify-content:space-between">
+        <button type="button" class="btn-tool" id="usDelete" style="display:none;color:var(--neg);border-color:color-mix(in srgb,var(--neg) 35%,transparent)">
+          <i class="bi bi-trash3"></i> Elimina utente</button>
+        <span style="display:flex;gap:.5rem;margin-left:auto">
+          <button type="button" class="btn-tool" data-bs-dismiss="modal">Annulla</button>
+          <button type="button" class="btn-primary-solid" id="usSave">Salva utente</button>
+        </span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================
+     MODAL: SPESE E IMPOSTE DEL CONTO
+     Motore generico: importo, cadenza e condizione sono liberi,
+     così ogni banca si può descrivere senza toccare il codice.
+     ============================================================ -->
+<div class="modal fade" id="rulesModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title fw-bold">Spese e imposte <span id="ruAcctName" style="font-weight:500;color:var(--text-muted)"></span></h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Chiudi"></button>
+      </div>
+      <div class="modal-body">
+
+        <div id="ruListPanel">
+          <div id="ruList"></div>
+          <button type="button" class="more-toggle" id="ruAdd" style="margin-top:.8rem">
+            <i class="bi bi-plus-lg"></i> Aggiungi una regola</button>
+          <div class="chips" style="margin-top:.8rem">
+            <span style="font-size:.78rem;color:var(--text-muted);align-self:center">Modelli pronti:</span>
+            <button type="button" class="chip" data-preset="bollo">Bollo 34,20 € sopra 5.000 €</button>
+            <button type="button" class="chip" data-preset="bolloPct">Bollo 0,20% annuo</button>
+            <button type="button" class="chip" data-preset="canone">Canone mensile</button>
+          </div>
+        </div>
+
+        <div id="ruEditPanel" style="display:none">
+          <div class="row g-3">
+            <div class="col-sm-7">
+              <label class="form-label fw-semibold" for="ruNome">Nome della voce</label>
+              <input type="text" class="form-control" id="ruNome" placeholder="Es. Imposta di bollo">
+            </div>
+            <div class="col-sm-5">
+              <label class="form-label fw-semibold" for="ruCat">Categoria</label>
+              <select class="form-select" id="ruCat"></select>
+            </div>
+
+            <div class="col-12"><hr style="border-color:var(--border);margin:.2rem 0"></div>
+            <div class="col-12"><b style="font-size:.86rem">Quanto</b></div>
+            <div class="col-sm-5">
+              <label class="form-label fw-semibold" for="ruTipo">Calcolo</label>
+              <select class="form-select" id="ruTipo">
+                <option value="fisso">Importo fisso</option>
+                <option value="pct_giacenza">Percentuale sulla giacenza media</option>
+                <option value="pct_saldo">Percentuale sul saldo a fine periodo</option>
+              </select>
+            </div>
+            <div class="col-sm-3">
+              <label class="form-label fw-semibold" for="ruValore"><span id="ruValoreLbl">Importo (€)</span></label>
+              <input type="text" inputmode="decimal" class="form-control" id="ruValore" placeholder="0,00">
+            </div>
+            <div class="col-sm-4">
+              <label class="form-label fw-semibold" for="ruCap">Tetto massimo annuo (€)</label>
+              <input type="text" inputmode="decimal" class="form-control" id="ruCap" placeholder="nessuno">
+            </div>
+            <div class="col-12">
+              <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" id="ruAnnuale">
+                <label class="form-check-label" for="ruAnnuale">Il valore indicato è annuo e va ripartito sulle scadenze</label>
+              </div>
+            </div>
+            <div class="col-12" id="ruProrataBox">
+              <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" id="ruProrata">
+                <label class="form-check-label" for="ruProrata" data-i18n="rule.prorata_label">Calcola sui giorni effettivi del periodo e addebita il primo giorno lavorativo del mese successivo</label>
+              </div>
+            </div>
+
+            <div class="col-12"><hr style="border-color:var(--border);margin:.2rem 0"></div>
+            <div class="col-12"><b style="font-size:.86rem">Ogni quanto</b></div>
+            <div class="col-sm-4">
+              <label class="form-label fw-semibold" for="ruCadenza">Cadenza</label>
+              <select class="form-select" id="ruCadenza">
+                <option value="mensile">Mensile</option>
+                <option value="bimestrale">Bimestrale</option>
+                <option value="trimestrale">Trimestrale</option>
+                <option value="semestrale">Semestrale</option>
+                <option value="annuale">Annuale</option>
+              </select>
+            </div>
+            <div class="col-sm-4" id="ruMeseBox" style="display:none">
+              <label class="form-label fw-semibold" for="ruMese">Mese di addebito</label>
+              <select class="form-select" id="ruMese"></select>
+            </div>
+            <div class="col-sm-4">
+              <label class="form-label fw-semibold" for="ruGiorno">Giorno</label>
+              <select class="form-select" id="ruGiorno"></select>
+            </div>
+
+            <div class="col-12"><hr style="border-color:var(--border);margin:.2rem 0"></div>
+            <div class="col-12"><b style="font-size:.86rem">A quale condizione</b></div>
+            <div class="col-sm-5">
+              <label class="form-label fw-semibold" for="ruBase">Si applica</label>
+              <select class="form-select" id="ruBase"></select>
+            </div>
+            <div class="col-sm-3" id="ruOpBox" style="display:none">
+              <label class="form-label fw-semibold" for="ruOp">Confronto</label>
+              <select class="form-select" id="ruOp">
+                <option value=">">maggiore di</option>
+                <option value=">=">maggiore o uguale a</option>
+                <option value="<">minore di</option>
+                <option value="<=">minore o uguale a</option>
+              </select>
+            </div>
+            <div class="col-sm-4" id="ruSogliaBox" style="display:none">
+              <label class="form-label fw-semibold" for="ruSoglia"><span id="ruSogliaLbl">Soglia (€)</span></label>
+              <input type="text" inputmode="decimal" class="form-control" id="ruSoglia" placeholder="0,00">
+            </div>
+
+            <div class="col-12">
+              <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" id="ruAttiva" checked>
+                <label class="form-check-label" for="ruAttiva">Regola attiva</label>
+              </div>
+            </div>
+
+            <div class="col-12">
+              <div style="background:var(--surface-2);border:1px solid var(--border);border-radius:10px;padding:.75rem .85rem">
+                <div style="font-size:.76rem;font-weight:700;color:var(--text-muted);margin-bottom:.4rem">
+                  Anteprima sulle prossime scadenze, con i dati veri del conto</div>
+                <div id="ruPreview" style="font-size:.86rem"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+      <div class="modal-footer" style="justify-content:space-between">
+        <button type="button" class="btn-tool" id="ruDelete" style="display:none;color:var(--neg);border-color:color-mix(in srgb,var(--neg) 35%,transparent)">
+          <i class="bi bi-trash3"></i> Elimina regola</button>
+        <span style="display:flex;gap:.5rem;margin-left:auto">
+          <button type="button" class="btn-tool" id="ruCancel" style="display:none">Annulla</button>
+          <button type="button" class="btn-tool" data-bs-dismiss="modal" id="ruClose">Chiudi</button>
+          <button type="button" class="btn-primary-solid" id="ruSave" style="display:none">Salva regola</button>
+        </span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================
+     MODAL: IMPORTA MOVIMENTI (CSV della banca)
+     ============================================================ -->
+<div class="modal fade" id="importModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title fw-bold">Importa movimenti <span id="impAcctName" style="font-weight:500;color:var(--text-muted)"></span></h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Chiudi"></button>
+      </div>
+      <div class="modal-body">
+        <div id="impStep1">
+          <div class="dropzone" id="impDrop">
+            <i class="bi bi-filetype-csv"></i>
+            <div><b>Trascina qui il file</b> oppure tocca per sceglierlo</div>
+            <div style="font-size:.8rem;margin-top:.3rem">CSV o TXT esportato dalla banca · separatore , o ;</div>
+          </div>
+          <input type="file" id="impFile" accept=".csv,.txt,text/csv" style="display:none">
+          <p style="font-size:.82rem;color:var(--text-muted);margin:.8rem 0 0">
+            Il file non lascia il dispositivo: viene letto qui nel browser. Nella versione definitiva l’analisi
+            avverrà lato server, con le stesse regole di riconoscimento dei duplicati.
+          </p>
+          <button type="button" class="btn-tool" id="impDemo" style="margin-top:.6rem"><i class="bi bi-lightning"></i> Prova con un estratto conto di esempio</button>
+        </div>
+
+        <div id="impStep2" style="display:none">
+          <div class="map-grid">
+            <div>
+              <label class="form-label fw-semibold" for="impColDate" style="font-size:.82rem">Colonna data</label>
+              <select class="form-select" id="impColDate"></select>
+            </div>
+            <div>
+              <label class="form-label fw-semibold" for="impColDesc" style="font-size:.82rem">Colonna descrizione</label>
+              <select class="form-select" id="impColDesc"></select>
+            </div>
+            <div>
+              <label class="form-label fw-semibold" for="impColAmount" style="font-size:.82rem">Colonna importo</label>
+              <select class="form-select" id="impColAmount"></select>
+            </div>
+            <div>
+              <label class="form-label fw-semibold" for="impColAmount2" style="font-size:.82rem">Colonna entrate (se separata)</label>
+              <select class="form-select" id="impColAmount2"></select>
+            </div>
+            <div>
+              <label class="form-label fw-semibold" for="impDateFmt" style="font-size:.82rem">Formato data</label>
+              <select class="form-select" id="impDateFmt">
+                <option value="dmy">gg/mm/aaaa</option>
+                <option value="ymd">aaaa-mm-gg</option>
+                <option value="mdy">mm/gg/aaaa</option>
+              </select>
+            </div>
+            <div>
+              <label class="form-label fw-semibold" for="impDec" style="font-size:.82rem">Separatore decimale</label>
+              <select class="form-select" id="impDec">
+                <option value=",">virgola (1.234,56)</option>
+                <option value=".">punto (1,234.56)</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-check form-switch mt-3">
+            <input class="form-check-input" type="checkbox" id="impSkipDup" checked>
+            <label class="form-check-label" for="impSkipDup">Salta i movimenti già presenti (stessa data, importo e descrizione)</label>
+          </div>
+          <div class="form-check form-switch">
+            <input class="form-check-input" type="checkbox" id="impAutoCat" checked>
+            <label class="form-check-label" for="impAutoCat">Assegna la categoria in base alle parole della descrizione</label>
+          </div>
+
+          <div class="imp-stats" id="impStats"></div>
+          <div class="prev-wrap"><table id="impPreview"></table></div>
+        </div>
+      </div>
+      <div class="modal-footer" style="justify-content:space-between">
+        <button type="button" class="btn-tool" id="impBack" style="display:none"><i class="bi bi-arrow-left"></i> Cambia file</button>
+        <span style="display:flex;gap:.5rem;margin-left:auto">
+          <button type="button" class="btn-tool" data-bs-dismiss="modal">Annulla</button>
+          <button type="button" class="btn-primary-solid" id="impConfirm" style="display:none">Importa</button>
+        </span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================
+     MODAL: CONTO (nuovo / modifica)
+     ============================================================ -->
+<div class="modal fade" id="acctModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title fw-bold" id="acctModalTitle">Nuovo conto</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Chiudi"></button>
+      </div>
+      <div class="modal-body">
+        <div class="row g-3">
+          <div class="col-12">
+            <label class="form-label fw-semibold" for="acName">Nome</label>
+            <input type="text" class="form-control" id="acName" placeholder="Es. Conto Principale">
+          </div>
+          <div class="col-12">
+            <label class="form-label fw-semibold">Tipo</label>
+            <div class="chips" id="acTipo">
+              <button type="button" class="chip is-on" data-tipo="corrente"><i class="bi bi-bank"></i> Conto corrente</button>
+              <button type="button" class="chip" data-tipo="deposito"><i class="bi bi-piggy-bank"></i> Deposito</button>
+              <button type="button" class="chip" data-tipo="carta"><i class="bi bi-credit-card"></i> Carta di credito</button>
+              <button type="button" class="chip" data-tipo="virtuale"><i class="bi bi-bookmark-star"></i> Salvadanaio</button>
+            </div>
+            <p style="font-size:.79rem;color:var(--text-muted);margin:.45rem 0 0" id="acTipoHint"></p>
+          </div>
+          <div class="col-12">
+            <label class="form-label fw-semibold">Icona</label>
+            <div class="chips" id="acIcons"></div>
+          </div>
+          <div class="col-sm-7" id="acNoteBox">
+            <label class="form-label fw-semibold" for="acNote">Nota</label>
+            <input type="text" class="form-control" id="acNote" placeholder="Ultime cifre, intestatario…">
+            <p style="font-size:.76rem;color:var(--text-muted);margin:.3rem 0 0">Compare sotto il nome nella barra laterale.</p>
+          </div>
+          <div class="col-sm-5" id="acBalBox">
+            <label class="form-label fw-semibold" for="acBal">Saldo iniziale (€)</label>
+            <input type="text" inputmode="decimal" class="form-control" id="acBal" placeholder="0,00">
+          </div>
+
+          <div class="col-12" id="acIbanBox">
+            <label class="form-label fw-semibold" for="acIban">IBAN</label>
+            <input type="text" class="form-control" id="acIban" autocomplete="off" placeholder="IT00 X000 0000 0000 0000 0000 000">
+          </div>
+
+          <div class="col-sm-4" id="acMassBox" style="display:none">
+            <label class="form-label fw-semibold" for="acMass">Massimale (€)</label>
+            <input type="text" inputmode="decimal" class="form-control" id="acMass" placeholder="3.000,00">
+          </div>
+          <div class="col-sm-4" id="acChiusuraBox" style="display:none">
+            <label class="form-label fw-semibold" for="acChiusura">Giorno di chiusura contabile</label>
+            <input type="number" class="form-control" id="acChiusura" min="1" max="28" value="5">
+          </div>
+          <div class="col-sm-4" id="acAddebitoBox" style="display:none">
+            <label class="form-label fw-semibold" for="acAddebito">Giorno di addebito</label>
+            <input type="number" class="form-control" id="acAddebito" min="1" max="28" value="5">
+          </div>
+          <div class="col-sm-4" id="acPrimaryBox" style="display:none">
+            <label class="form-label fw-semibold" for="acPrimary">Conto di appoggio</label>
+            <select class="form-select" id="acPrimary"></select>
+          </div>
+          <div class="col-sm-4" id="acTassoBox" style="display:none">
+            <label class="form-label fw-semibold" for="acTasso">Tasso lordo annuo (%)</label>
+            <input type="text" inputmode="decimal" class="form-control" id="acTasso" placeholder="3,00">
+          </div>
+          <div class="col-12" id="acShareBox">
+            <hr style="border-color:var(--border)">
+            <h6 class="fw-bold" style="font-size:.92rem;margin:0">Chi può vedere questo conto</h6>
+            <p style="font-size:.79rem;color:var(--text-muted);margin:.2rem 0 .5rem">
+              Il proprietario ha sempre pieno accesso. Agli altri puoi dare sola lettura o anche scrittura.
+            </p>
+            <div class="mb-2" id="acOwnerBox">
+              <label class="form-label fw-semibold" for="acOwner" style="font-size:.84rem">Proprietario</label>
+              <select class="form-select" id="acOwner" style="max-width:260px"></select>
+            </div>
+            <div class="share-add">
+              <input type="email" class="form-control" id="acShareEmail" placeholder="email della persona con cui condividere"
+                     autocomplete="off" inputmode="email">
+              <button type="button" class="btn-tool" id="acShareAdd"><i class="bi bi-plus-lg"></i> Condividi</button>
+            </div>
+            <div id="acShareList"></div>
+          </div>
+
+          <div class="col-12" id="acRulesBox">
+            <hr style="border-color:var(--border)">
+            <div class="d-flex align-items-center justify-content-between gap-2 flex-wrap">
+              <div>
+                <h6 class="fw-bold" style="font-size:.92rem;margin:0">Spese e imposte</h6>
+                <p style="font-size:.79rem;color:var(--text-muted);margin:.2rem 0 0">
+                  Regole libere: importo, cadenza e condizione. Ogni banca ha le sue.
+                </p>
+              </div>
+              <button type="button" class="btn-tool" id="acOpenRules"><i class="bi bi-percent"></i> Gestisci regole</button>
+            </div>
+            <div id="acRulesList" style="margin-top:.6rem"></div>
+          </div>
+
+          <div class="col-12" id="acGoalBox" style="display:none">
+            <label class="form-label fw-semibold" for="acGoal">Obiettivo da raggiungere (€, facoltativo)</label>
+            <input type="text" inputmode="decimal" class="form-control" id="acGoal" placeholder="1.500,00">
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer" style="justify-content:space-between">
+        <button type="button" class="btn-tool" id="acDelete" style="display:none;color:var(--neg);border-color:color-mix(in srgb,var(--neg) 35%,transparent)">
+          <i class="bi bi-trash3"></i> Elimina conto</button>
+        <span style="display:flex;gap:.5rem;margin-left:auto">
+          <button type="button" class="btn-tool" data-bs-dismiss="modal">Annulla</button>
+          <button type="button" class="btn-primary-solid" id="acSave">Salva conto</button>
+        </span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================
+     MODAL: RICORRENZA AVANZATA
+     ============================================================ -->
+<div class="modal fade" id="recModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title fw-bold">Ricorrenza</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Chiudi"></button>
+      </div>
+      <div class="modal-body">
+        <div class="row g-3" id="rFormRows">
+          <div class="col-md-8">
+            <label class="form-label fw-semibold" for="rDesc">Descrizione</label>
+            <input type="text" class="form-control" id="rDesc" placeholder="Es. Affitto">
+          </div>
+          <div class="col-md-4">
+            <label class="form-label fw-semibold">Tipo</label>
+            <div class="seg w-100" id="rTipo" style="justify-content:stretch">
+              <button type="button" data-tipo="uscita" class="is-on" style="flex:1">Uscita</button>
+              <button type="button" data-tipo="entrata" style="flex:1">Entrata</button>
+            </div>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label fw-semibold" for="rAmount" id="rAmountLabel">Importo (€)</label>
+            <input type="text" inputmode="decimal" class="form-control" id="rAmount" placeholder="0,00">
+          </div>
+          <div class="col-12" id="rApplyBox" style="display:none">
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" id="rApplyExisting">
+              <label class="form-check-label" for="rApplyExisting" data-i18n="modal.rec.apply_existing">Applica l’importo anche ai movimenti già registrati</label>
+            </div>
+            <div id="rApplyOpts" style="display:none;margin:.5rem 0 0 1.5rem">
+              <div class="d-flex align-items-center gap-2 flex-wrap">
+                <label class="form-label mb-0" style="font-size:.86rem" for="rApplyFrom" data-i18n="modal.rec.apply_from">A partire dal (vuoto = tutti)</label>
+                <input type="date" class="form-control" id="rApplyFrom" style="width:auto">
+              </div>
+              <div class="form-check" style="margin-top:.5rem">
+                <input class="form-check-input" type="checkbox" id="rOverwriteManual">
+                <label class="form-check-label" for="rOverwriteManual" data-i18n="modal.rec.overwrite_manual">Sovrascrivi anche quelli modificati a mano</label>
+              </div>
+            </div>
+          </div>
+          <div class="col-12">
+            <label class="form-label fw-semibold">Come si comporta l’importo</label>
+            <div class="chips" id="rMode">
+              <button type="button" class="chip is-on" data-mode="fixed"><i class="bi bi-pin-angle"></i> Sempre uguale</button>
+              <button type="button" class="chip" data-mode="avg"><i class="bi bi-graph-up"></i> Stimato sulla media</button>
+            </div>
+            <div id="rAvgBox" style="display:none;margin-top:.6rem">
+              <div class="d-flex align-items-center gap-2 flex-wrap">
+                <span style="font-size:.86rem">Media delle ultime</span>
+                <input type="number" class="form-control" id="rAvgN" min="2" max="24" value="6" style="width:80px">
+                <span style="font-size:.86rem">occorrenze realmente registrate</span>
+              </div>
+              <p style="font-size:.82rem;color:var(--text-muted);margin:.5rem 0 0" id="rAvgHint"></p>
+            </div>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label fw-semibold" for="rCat">Categoria</label>
+            <select class="form-select" id="rCat"></select>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label fw-semibold" for="rAcct">Conto</label>
+            <select class="form-select" id="rAcct"></select>
+          </div>
+          <div class="col-12">
+            <div class="form-check form-switch">
+              <input class="form-check-input" type="checkbox" id="rIsTransfer">
+              <label class="form-check-label fw-semibold" for="rIsTransfer">Trasferimento tra conti</label>
+            </div>
+          </div>
+          <div class="col-12" id="rTransferBox" style="display:none">
+            <div class="row g-3">
+              <div class="col-md-6">
+                <label class="form-label fw-semibold" for="rLinkedAcct">Conto collegato</label>
+                <select class="form-select" id="rLinkedAcct"></select>
+              </div>
+              <div class="col-md-6">
+                <label class="form-label fw-semibold" for="rLinkedCat">Categoria conto collegato</label>
+                <select class="form-select" id="rLinkedCat"></select>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label fw-semibold" for="rFirst">Prima occorrenza</label>
+            <input type="date" class="form-control" id="rFirst">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label fw-semibold" for="rPattern">Ripetizione</label>
+            <select class="form-select" id="rPattern">
+              <option value="daily">Ogni giorno</option>
+              <option value="weekly">Ogni settimana</option>
+              <option value="monthly-day" selected>Ogni mese, stesso giorno</option>
+              <option value="monthly-last">Ogni mese, ultimo giorno del mese</option>
+              <option value="monthly-weekday">Ogni mese, stesso giorno della settimana</option>
+              <option value="yearly">Ogni anno</option>
+            </select>
+            <div class="form-text" id="rPatternHint" style="display:none" data-i18n="modal.rec.last_day_hint">Nei mesi con meno giorni questa data viene saltata: per addebitare sempre a fine mese scegli «Ogni mese, ultimo giorno del mese».</div>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label fw-semibold" for="rSkip">Salta occorrenze</label>
+            <input type="number" class="form-control" id="rSkip" min="0" value="0">
+          </div>
+          <div class="col-md-8">
+            <label class="form-label fw-semibold" for="rWeekend">Se cade nel weekend o in un giorno festivo</label>
+            <select class="form-select" id="rWeekend">
+              <option value="create">Registra comunque</option>
+              <option value="skip">Salta</option>
+              <option value="friday">Anticipa al giorno lavorativo precedente</option>
+              <option value="monday">Posticipa al giorno lavorativo successivo</option>
+            </select>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label fw-semibold" for="rEndType">Termina</label>
+            <select class="form-select" id="rEndType">
+              <option value="never">Mai</option>
+              <option value="until">A una data</option>
+              <option value="count">Dopo N volte</option>
+            </select>
+          </div>
+          <div class="col-md-4" id="rEndDateBox" style="display:none">
+            <label class="form-label fw-semibold" for="rEndDate">Data di fine</label>
+            <input type="date" class="form-control" id="rEndDate">
+          </div>
+          <div class="col-md-4" id="rEndCountBox" style="display:none">
+            <label class="form-label fw-semibold" for="rEndCount">Numero di volte</label>
+            <input type="number" class="form-control" id="rEndCount" min="1" value="12">
+          </div>
+          <div class="col-12">
+            <div class="form-check form-switch">
+              <input class="form-check-input" type="checkbox" id="rActive" checked>
+              <label class="form-check-label fw-semibold" for="rActive">Regola attiva</label>
+            </div>
+          </div>
+          <div class="col-12">
+            <div style="background:var(--surface-2);border:1px solid var(--border);border-radius:10px;padding:.7rem .85rem">
+              <div style="font-size:.76rem;font-weight:700;color:var(--text-muted);margin-bottom:.3rem">Prossime occorrenze</div>
+              <div id="rPreview" style="font-size:.87rem;font-variant-numeric:tabular-nums"></div>
+            </div>
+          </div>
+        </div>
+      <div id="rDatePanel" style="display:none">
+          <h6 class="fw-bold mb-1" data-i18n="modal.rec.date.title">Verifica i movimenti della ricorrenza</h6>
+          <p id="rDateSummary" style="font-size:.88rem;color:var(--text-muted)"></p>
+          <div id="rDateGroups"></div>
+        </div>
+      </div>
+      <div class="modal-footer" id="rFooterMain">
+        <button type="button" class="btn-tool" data-bs-dismiss="modal">Annulla</button>
+        <button type="button" class="btn-primary-solid" id="saveRec">Salva ricorrenza</button>
+      </div>
+      <div class="modal-footer" id="rFooterDate" style="display:none">
+        <button type="button" class="btn-tool" id="rDateBack" data-i18n="modal.rec.date.back">Indietro</button>
+        <button type="button" class="btn-primary-solid" id="rDateConfirm" data-i18n="modal.rec.date.confirm">Conferma e salva</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="/vendor/bootstrap.bundle.min.js"></script>
+
+<style>
+@keyframes flashIn{0%{background:var(--accent-soft)}100%{background:transparent}}
+tr.flash td,.m-row.flash .m-front{animation:flashIn 1.6s ease-out}
+</style>
+
+<script src="/offline-queue.js"></script>
+<script src="/app.js"></script>
+</body>
+</html>

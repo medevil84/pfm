@@ -1,0 +1,26 @@
+[package]
+name = "pfm-service"
+description = "Business-logic / use-case orchestration layer for PFM."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+publish.workspace = true
+
+[dependencies]
+pfm-domain = { workspace = true }
+pfm-repo = { workspace = true }
+argon2 = { workspace = true }
+rand = { workspace = true }
+chrono = { workspace = true }
+uuid = { workspace = true }
+async-trait = { workspace = true }
+tracing = { workspace = true }
+thiserror = "2"
+sha2 = { workspace = true }
+tokio = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true }
+sqlx = { workspace = true }

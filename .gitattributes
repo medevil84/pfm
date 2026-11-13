@@ -1,0 +1,23 @@
+# The corruption that broke web/app.js came from tools that rewrote files in a
+# non-UTF-8 encoding. Pin the line endings so a checkout on Windows cannot
+# reintroduce mixed CRLF/LF, and mark the text types explicitly.
+* text=auto eol=lf
+
+*.rs      text eol=lf
+*.js      text eol=lf
+*.json    text eol=lf
+*.html    text eol=lf
+*.css     text eol=lf
+*.sql     text eol=lf
+*.toml    text eol=lf
+*.md      text eol=lf
+
+# PowerShell scripts stay CRLF.
+*.ps1     text eol=crlf
+
+# Never normalise binaries.
+*.png     binary
+*.ico     binary
+*.woff    binary
+*.woff2   binary
+*.db      binary

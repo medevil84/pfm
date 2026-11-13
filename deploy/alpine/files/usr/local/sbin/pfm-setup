@@ -1,0 +1,36 @@
+#!/bin/sh
+# pfm-setup: lancia la procedura guidata di prima configurazione (pfm-app --setup).
+# Ferma il servizio (stessa porta), esegue il wizard come utente pfm e
+# riavvia SEMPRE il servizio alla fine, anche in caso di errore o Ctrl-C.
+
+if [ "$(id -u)" != "0" ]; then
+	echo "Errore: eseguire come root" >&2
+	exit 1
+fi
+
+IP=$(ip -4 -o addr show scope global 2>/dev/null | awk '{print $4}' | cut -d/ -f1 | head -n1)
+PORT=$(sed -n 's/^port *= *\([0-9][0-9]*\).*/\1/p' /etc/pfm/config.toml 2>/dev/null | head -n1)
+
+restart_service() {
+	echo "Riavvio del servizio pfm..."
+	rc-service pfm start
+}
+trap 'restart_service; exit 1' INT TERM
+
+echo "PFM - configurazione iniziale"
+echo "Il wizard e' protetto da un token monouso che pfm-app stampa qui sotto"
+echo "(sezione 'SETUP TOKEN'). Apri nel browser l'indirizzo completo di token:"
+echo "   http://${IP:-<ip-del-container>}:${PORT:-9999}/#t=<TOKEN>"
+echo "Al termine del wizard questo comando si chiude da solo."
+echo "Finche' e' in corso, chiunque abbia il token puo' azzerare i dati: non"
+echo "lasciarlo aperto e non condividere il token."
+echo
+
+rc-service pfm stop >/dev/null 2>&1
+chown pfm:pfm /var/lib/pfm
+
+su -s /bin/sh pfm -c 'cd /var/lib/pfm && exec /usr/local/bin/pfm-app --config /etc/pfm/config.toml --setup'
+RC=$?
+
+restart_service
+exit "$RC"

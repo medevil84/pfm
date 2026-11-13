@@ -1,0 +1,5 @@
+# Keep this directory in version control.
+#
+# SQLite database files (pfm.db, pfm.db-wal, pfm.db-shm) are created here at
+# runtime and are intentionally NOT committed. Adjust `database.sqlite_path` in
+# config.toml to relocate the database if desired.

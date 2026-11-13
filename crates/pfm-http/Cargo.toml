@@ -1,0 +1,36 @@
+[package]
+name = "pfm-http"
+description = "HTTP transport layer: routing, handlers, middleware for PFM."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+publish.workspace = true
+
+[dependencies]
+axum = { workspace = true }
+tower-http = { workspace = true }
+tower = { workspace = true }
+tower-sessions = { workspace = true }
+pfm-service = { workspace = true }
+pfm-domain = { workspace = true }
+pfm-config = { workspace = true }
+pfm-i18n = { workspace = true }
+pfm-repo = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tracing = { workspace = true }
+tokio = { workspace = true }
+rand = { workspace = true }
+http-body-util = { workspace = true }
+anyhow = { workspace = true }
+time = { workspace = true }
+chrono = { workspace = true }
+sha2 = { workspace = true }
+
+[dev-dependencies]
+tower = { workspace = true, features = ["util"] }
+http-body-util = { workspace = true }
+sqlx = { workspace = true }
+tokio = { workspace = true }
